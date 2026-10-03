@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SmartAgro.Core.Data;
 using SmartAgro.Core.Security;
+using SmartAgro.Core.ML;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,6 +90,8 @@ builder.Services.AddSwaggerGen(options =>
         [new OpenApiSecuritySchemeReference("Bearer", document)] = []
     });
 });
+
+builder.Services.AddSingleton<IDiseasePredictionService, DiseasePredictionService>();
 
 var app = builder.Build();
 
