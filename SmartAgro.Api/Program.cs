@@ -4,9 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using SmartAgro.Core.Alerts;
 using SmartAgro.Core.Data;
 using SmartAgro.Core.ML;
 using SmartAgro.Core.Security;
+using SmartAgro.Core.Simulator;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +46,13 @@ builder.Services.AddSingleton<ITelemetryCryptoService, TelemetryCryptoService>()
 // 5. Реєстрація сервісу машинного навчання (ONNX Inference)
 builder.Services.AddSingleton<IDiseasePredictionService, DiseasePredictionService>();
 
-// 6. Налаштування JWT Bearer автентифікації
+// 6. Реєстрація підсистеми тривог (Alerts)
+builder.Services.AddScoped<IAlertService, AlertService>();
+
+// 7. Фоновий IoT-симулятор (IHostedService / BackgroundService)
+builder.Services.AddHostedService<GreenhouseSimulatorService>();
+
+// 8. Налаштування JWT Bearer автентифікації
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -69,7 +77,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 7. Налаштування Swagger з підтримкою Bearer-токена
+// 9. Налаштування Swagger з підтримкою Bearer-токена
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
