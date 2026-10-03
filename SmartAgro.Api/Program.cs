@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SmartAgro.Core.Data;
-using SmartAgro.Core.Security;
 using SmartAgro.Core.ML;
+using SmartAgro.Core.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,11 +33,18 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSett
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? throw new InvalidOperationException("Секція JwtSettings не знайдена в конфігурації.");
 
-// 3. Реєстрація сервісів безпеки в DI
+// 3. Конфігурація криптографічного захисту телеметрії (AES-256 + HMAC-SHA256)
+builder.Services.Configure<CryptoSettings>(builder.Configuration.GetSection(CryptoSettings.SectionName));
+
+// 4. Реєстрація сервісів безпеки та криптографії в DI
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddSingleton<ITelemetryCryptoService, TelemetryCryptoService>();
 
-// 4. Налаштування JWT Bearer автентифікації
+// 5. Реєстрація сервісу машинного навчання (ONNX Inference)
+builder.Services.AddSingleton<IDiseasePredictionService, DiseasePredictionService>();
+
+// 6. Налаштування JWT Bearer автентифікації
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -62,7 +69,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 5. Налаштування Swagger з підтримкою Bearer-токена
+// 7. Налаштування Swagger з підтримкою Bearer-токена
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -84,14 +91,12 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", securityScheme);
 
-    // Додаємо глобальну вимогу безпеки без застарілих типів посилань
+    // Глобальна вимога авторизації через Bearer
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
         [new OpenApiSecuritySchemeReference("Bearer", document)] = []
     });
 });
-
-builder.Services.AddSingleton<IDiseasePredictionService, DiseasePredictionService>();
 
 var app = builder.Build();
 
