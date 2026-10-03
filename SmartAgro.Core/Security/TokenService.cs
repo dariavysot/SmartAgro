@@ -52,4 +52,44 @@ public sealed class TokenService(IOptions<JwtSettings> jwtOptions) : ITokenServi
         byte[] randomBytes = RandomNumberGenerator.GetBytes(64);
         return Convert.ToBase64String(randomBytes);
     }
+
+    /// <summary>
+    /// Отримує ClaimsPrincipal із закінченого або активного JWT токена для валідації запиту на оновлення.
+    /// Перевіряє підпис та алгоритм шифрування, ігноруючи факт вичерпання терміну дії.
+    /// </summary>
+    public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
+    {
+        var tokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateAudience = true,
+            ValidateIssuer = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = _jwtSettings.Issuer,
+            ValidAudience = _jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey)),
+            ValidateLifetime = false // Дозволяє прочитати claims навіть із простроченого токена
+        };
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+
+        try
+        {
+            var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
+
+            // Перевіряємо, що алгоритм підпису відповідає HmacSha256
+            if (securityToken is not JwtSecurityToken jwtSecurityToken ||
+                (!jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256Signature, StringComparison.InvariantCultureIgnoreCase) &&
+                 !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase)))
+            {
+                return null;
+            }
+
+            return principal;
+        }
+        catch
+        {
+            // Якщо формат рядка некоректний або підпис підроблено
+            return null;
+        }
+    }
 }

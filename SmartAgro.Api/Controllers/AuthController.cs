@@ -146,4 +146,68 @@ public class AuthController(
             Message = "Вітаємо в панелі адміністратора! Доступ підтверджено роллю Admin."
         });
     }
+
+    /// <summary>
+    /// Оновлення пари Access/Refresh токенів (ротація токенів).
+    /// </summary>
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto, CancellationToken ct)
+    {
+        var principal = tokenService.GetPrincipalFromExpiredToken(dto.AccessToken);
+        if (principal == null)
+            return BadRequest(new { Message = "Невалідний access-токен." });
+
+        var emailClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (string.IsNullOrWhiteSpace(emailClaim))
+            return BadRequest(new { Message = "Токен не містить обов'язкових даних." });
+
+        var user = await context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email == emailClaim, ct);
+
+        // Перевіряємо валідність refresh-токена та термін його дії
+        if (user == null ||
+            user.RefreshToken != dto.RefreshToken ||
+            user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        {
+            return Unauthorized(new { Message = "Недійсний або прострочений refresh-токен." });
+        }
+
+        // Ротація токенів: випускаємо нову пару
+        var (newAccessToken, expiration) = tokenService.GenerateAccessToken(user);
+        var newRefreshToken = tokenService.GenerateRefreshToken();
+
+        user.RefreshToken = newRefreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+
+        await context.SaveChangesAsync(ct);
+
+        return Ok(new AuthResponseDto(
+            newAccessToken,
+            newRefreshToken,
+            expiration,
+            user.Username,
+            user.Email,
+            user.Role?.Name.ToString() ?? UserRole.Operator.ToString()
+        ));
+    }
+
+    /// <summary>
+    /// Анулювання Refresh-токена (вихід із системи).
+    /// </summary>
+    [HttpPost("revoke-token")]
+    public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequestDto dto, CancellationToken ct)
+    {
+        var user = await context.Users.FirstOrDefaultAsync(u => u.RefreshToken == dto.RefreshToken, ct);
+        if (user == null)
+            return NotFound(new { Message = "Токен не знайдено або він уже відкликаний." });
+
+        // Анулюємо токен у базі
+        user.RefreshToken = null;
+        user.RefreshTokenExpiryTime = null;
+
+        await context.SaveChangesAsync(ct);
+
+        return Ok(new { Message = "Refresh-токен успішно відкликано." });
+    }
 }
