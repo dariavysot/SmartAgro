@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="SmartAgro.Api/SmartAgro.Api.csproj" />
+  <Project Path="SmartAgro.Core/SmartAgro.Core.csproj" />
+</Solution>

@@ -1,0 +1,26 @@
+## Build and temp outputs
+bin/
+obj/
+out/
+[Bb]in/
+[Oo]bj/
+
+## Visual Studio cache
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Visual Studio Code
+.vscode/
+
+## SQLite & local databases
+*.db
+*.db-shm
+*.db-wal
+
+## Logs & secrets
+*.log
+appsettings.Production.json
+secrets.json
