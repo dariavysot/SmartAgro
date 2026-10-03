@@ -50,9 +50,17 @@ public sealed record AuthResponseDto(
 /// Запит на оновлення пари токенів, коли закінчився термін дії AccessToken.
 /// </summary>
 public sealed record RefreshTokenRequestDto(
-    [Required]
+    [Required(ErrorMessage = "Вкажіть AccessToken")]
     string AccessToken,
 
-    [Required]
+    [Required(ErrorMessage = "Вкажіть RefreshToken")]
+    string RefreshToken
+);
+
+/// <summary>
+/// Запит на відкликання Refresh-токена (Logout/Revocation).
+/// </summary>
+public sealed record RevokeTokenRequestDto(
+    [Required(ErrorMessage = "Вкажіть RefreshToken для відкликання")]
     string RefreshToken
 );
