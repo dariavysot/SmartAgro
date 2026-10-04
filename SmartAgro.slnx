@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="SmartAgro.Api/SmartAgro.Api.csproj" />
   <Project Path="SmartAgro.Core/SmartAgro.Core.csproj" />
+  <Project Path="SmartAgro.Tests/SmartAgro.Tests.csproj" />
 </Solution>
