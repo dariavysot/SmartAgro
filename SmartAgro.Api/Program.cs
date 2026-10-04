@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using SmartAgro.Api.Hubs;
+using SmartAgro.Api.Services;
 using SmartAgro.Core.Alerts;
 using SmartAgro.Core.Data;
 using SmartAgro.Core.ML;
@@ -49,10 +51,26 @@ builder.Services.AddSingleton<IDiseasePredictionService, DiseasePredictionServic
 // 6. Реєстрація підсистеми тривог (Alerts)
 builder.Services.AddScoped<IAlertService, AlertService>();
 
-// 7. Фоновий IoT-симулятор (IHostedService / BackgroundService)
+// 7. SignalR для трансляції телеметрії в реальному часі
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ITelemetryNotifier, SignalRTelemetryNotifier>();
+
+// 8. Налаштування CORS для Vite Dev Server
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Необхідно для SignalR WebSocket з'єднання
+    });
+});
+
+// 9. Фоновий IoT-симулятор (IHostedService / BackgroundService)
 builder.Services.AddHostedService<GreenhouseSimulatorService>();
 
-// 8. Налаштування JWT Bearer автентифікації
+// 10. Налаштування JWT Bearer автентифікації
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -69,7 +87,22 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
-        ClockSkew = TimeSpan.Zero // Без 5-хвилинного буфера за замовчуванням
+        ClockSkew = TimeSpan.Zero
+    };
+
+    // Передача JWT через query string для SignalR WebSockets
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -77,7 +110,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 9. Налаштування Swagger з підтримкою Bearer-токена
+// 11. Налаштування Swagger з підтримкою Bearer-токена
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -99,7 +132,6 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", securityScheme);
 
-    // Глобальна вимога авторизації через Bearer
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
         [new OpenApiSecuritySchemeReference("Bearer", document)] = []
@@ -116,10 +148,15 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Важливо: автентифікація ПЕРЕД авторизацією
+// Важливо: UseCors викликається ПЕРЕД UseAuthentication та UseAuthorization
+app.UseCors("FrontendPolicy");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Мапінг SignalR Хабу
+app.MapHub<TelemetryHub>("/hubs/telemetry");
 
 app.Run();
