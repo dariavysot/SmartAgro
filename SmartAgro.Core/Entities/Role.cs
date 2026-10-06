@@ -3,7 +3,7 @@
 public enum UserRole
 {
     Admin,
-    Operator
+    User
 }
 
 public class Role

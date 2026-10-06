@@ -51,7 +51,7 @@ export const Login: React.FC = () => {
             <Sprout className="w-8 h-8 text-emerald-400" />
           </div>
           <h2 className="text-2xl font-bold text-white tracking-wide">SmartAgro</h2>
-          <p className="text-xs text-slate-400 mt-1">Авторизація оператора системи</p>
+          <p className="text-xs text-slate-400 mt-1">Авторизація користувача системи</p>
         </div>
 
         {error && (
@@ -71,7 +71,7 @@ export const Login: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="operator@smartagro.ua"
+                placeholder="user@smartagro.ua"
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>

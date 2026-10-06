@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { useAuth } from '../context/AuthContext';
 import type { AuthResponse } from '../types/auth';
 import { Sprout, Lock, Mail, AlertCircle, Shield, User } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'Operator' | 'Admin'>('Operator');
+  const [role, setRole] = useState<'User' | 'Admin'>('User');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,15 +21,16 @@ export const Register: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post<AuthResponse>('/Auth/register', {
-        username: username || email.split('@')[0], // Передаємо username
-        email,
+      await apiClient.post<AuthResponse>('/Auth/register', {
+        username: username.trim() || email.split('@')[0],
+        email: email.trim(),
         password,
         role,
       });
 
-      login(response.data);
-      navigate('/');
+      // Показуємо підтвердження та перенаправляємо на сторінку входу
+      toast.success('Обліковий запис успішно створено! Увійдіть за допомогою вашого email та пароля.');
+      navigate('/login');
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.message ||
@@ -71,7 +71,7 @@ export const Register: React.FC = () => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="operator_daria"
+                placeholder="user_daria"
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
@@ -114,10 +114,10 @@ export const Register: React.FC = () => {
               <Shield className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as 'Operator' | 'Admin')}
+                onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer"
               >
-                <option value="Operator">Оператор (Перегляд та реакція на тривоги)</option>
+                <option value="User">Користувач (Власник теплиці)</option>
                 <option value="Admin">Адміністратор (Повний доступ + Налаштування)</option>
               </select>
             </div>

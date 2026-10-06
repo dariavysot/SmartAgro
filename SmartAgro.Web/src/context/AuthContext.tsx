@@ -4,7 +4,7 @@ import type { User, AuthResponse } from '../types/auth';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (data: any) => void;
+  login: (data: AuthResponse | any) => void;
   logout: () => void;
 }
 
@@ -21,18 +21,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const login = (data: any) => {
-    // Підтримка обох варіантів регістру (accessToken або AccessToken)
     const token = data.accessToken || data.AccessToken;
     const refresh = data.refreshToken || data.RefreshToken;
 
     if (token) localStorage.setItem('smartagro_access_token', token);
     if (refresh) localStorage.setItem('smartagro_refresh_token', refresh);
 
-    // Нормалізація користувача
+    // Збираємо користувача з відповіді бекенду
     const resolvedUser: User = data.user || {
-      id: data.userId || data.id || 'operator-1',
-      email: data.email || 'operator@smartagro.ua',
-      role: data.role || 'Operator',
+      id: data.userId || data.id,
+      username: data.username || data.email?.split('@')[0] || 'Користувач',
+      email: data.email || 'user@smartagro.ua',
+      role: (data.role as 'Admin' | 'User') || 'User',
     };
 
     localStorage.setItem('smartagro_user', JSON.stringify(resolvedUser));
@@ -43,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('smartagro_access_token');
     localStorage.removeItem('smartagro_refresh_token');
     localStorage.removeItem('smartagro_user');
+    localStorage.removeItem('smartagro_selected_greenhouse_id');
     setUser(null);
   };
 
