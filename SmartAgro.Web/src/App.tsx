@@ -9,6 +9,7 @@ import { Navbar } from './components/layout/Navbar';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Thresholds } from './pages/Thresholds';
+import { Greenhouses } from './pages/Greenhouses';
 import { MetricCard } from './components/dashboard/MetricCard';
 import { TelemetryChart, type ChartPoint } from './components/dashboard/TelemetryChart';
 import { DiseaseRiskWidget } from './components/dashboard/DiseaseRiskWidget';
@@ -146,6 +147,8 @@ function DashboardLayout() {
         <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
           {activeTab === 'thresholds' ? (
             <Thresholds />
+          ) : activeTab === 'greenhouses' ? (
+            <Greenhouses />
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
               <div className="flex items-center justify-between">
