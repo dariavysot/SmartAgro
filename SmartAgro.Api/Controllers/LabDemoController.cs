@@ -40,10 +40,13 @@ public class LabDemoController : ControllerBase
     [HttpPost("greenhouses")]
     public async Task<IActionResult> CreateGreenhouse([FromBody] CreateGreenhouseDto dto)
     {
+        var defaultUser = await _context.Users.FirstOrDefaultAsync();
+
         var greenhouse = new Greenhouse
         {
             Name = dto.Name,
-            Location = dto.Location
+            Location = dto.Location,
+            UserId = defaultUser?.Id ?? Guid.Empty
         };
 
         // Додаємо пов'язаний запис телеметрії
@@ -92,7 +95,6 @@ public class LabDemoController : ControllerBase
         var greenhouse = await _context.Greenhouses
             .Include(g => g.SensorReadings)
             .Include(g => g.Alerts)
-            .Include(g => g.Thresholds)
             .FirstOrDefaultAsync(g => g.Id == id);
 
         if (greenhouse == null)

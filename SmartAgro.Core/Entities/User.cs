@@ -16,4 +16,7 @@ public class User
     public DateTime? RefreshTokenExpiryTime { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Зв'язок з теплицями власника
+    public ICollection<Greenhouse> Greenhouses { get; set; } = new List<Greenhouse>();
 }

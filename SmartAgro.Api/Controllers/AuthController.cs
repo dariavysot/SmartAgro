@@ -31,7 +31,7 @@ public class AuthController(
         // 3. Перетворюємо переданий рядок ролі в enum UserRole
         if (!Enum.TryParse<UserRole>(dto.Role, true, out var requestedRole))
         {
-            requestedRole = UserRole.Operator;
+            requestedRole = UserRole.User;
         }
 
         // 4. Шукаємо відповідний запис сутності Role у базі даних
@@ -104,7 +104,7 @@ public class AuthController(
 
         await context.SaveChangesAsync(ct);
 
-        string roleString = user.Role != null ? user.Role.Name.ToString() : UserRole.Operator.ToString();
+        string roleString = user.Role != null ? user.Role.Name.ToString() : UserRole.User.ToString();
 
         return Ok(new AuthResponseDto(
             accessToken,
@@ -188,7 +188,7 @@ public class AuthController(
             expiration,
             user.Username,
             user.Email,
-            user.Role?.Name.ToString() ?? UserRole.Operator.ToString()
+            user.Role?.Name.ToString() ?? UserRole.User.ToString()
         ));
     }
 

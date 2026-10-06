@@ -50,14 +50,45 @@ public sealed class GreenhouseSimulatorService(
                 var greenhouse = await dbContext.Greenhouses.FirstOrDefaultAsync(stoppingToken);
                 if (greenhouse == null)
                 {
+                    // 1. Шукаємо будь-якого наявного користувача
+                    var defaultUser = await dbContext.Users.FirstOrDefaultAsync(stoppingToken);
+
+                    // Якщо база порожня — створюємо системного користувача (Admin), щоб задовольнити foreign key
+                    if (defaultUser == null)
+                    {
+                        var adminRole = await dbContext.Roles.FirstOrDefaultAsync(r => r.Name == UserRole.Admin, stoppingToken)
+                                        ?? await dbContext.Roles.FirstOrDefaultAsync(stoppingToken);
+
+                        defaultUser = new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Username = "admin",
+                            Email = "admin@smartagro.local",
+                            PasswordHash = "AQAAAAIAAYagAAAAEOvSystemInitHashDefaultPlaceHolder==",
+                            Salt = "SystemAutoSeedSalt==",
+                            RoleId = adminRole?.Id ?? 1,
+                            CreatedAt = DateTime.UtcNow
+                        };
+
+                        await dbContext.Users.AddAsync(defaultUser, stoppingToken);
+                        await dbContext.SaveChangesAsync(stoppingToken);
+
+                        logger.LogInformation("Створено початкового системного користувача: {Email} (ID: {UserId})", defaultUser.Email, defaultUser.Id);
+                    }
+
+                    // 2. Створюємо першу теплицю з коректним UserId
                     greenhouse = new Greenhouse
                     {
                         Id = Guid.NewGuid(),
                         Name = "Головна Теплиця (Smart Unit 1)",
-                        Location = "Сектор А"
+                        Location = "Сектор А",
+                        UserId = defaultUser.Id
                     };
+
                     await dbContext.Greenhouses.AddAsync(greenhouse, stoppingToken);
                     await dbContext.SaveChangesAsync(stoppingToken);
+
+                    logger.LogInformation("Створено початкову теплицю: {Name} (ID: {GreenhouseId}) для користувача {UserId}", greenhouse.Name, greenhouse.Id, defaultUser.Id);
                 }
 
                 // 1. Фізична модель добового циклу (Diurnal Cycle)
