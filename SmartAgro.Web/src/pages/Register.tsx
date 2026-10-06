@@ -9,7 +9,7 @@ export const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'Operator' | 'Admin'>('Operator');
+  const [role, setRole] = useState<'User' | 'Admin'>('User');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -71,7 +71,7 @@ export const Register: React.FC = () => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="operator_daria"
+                placeholder="user_daria"
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
@@ -114,10 +114,10 @@ export const Register: React.FC = () => {
               <Shield className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as 'Operator' | 'Admin')}
+                onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer"
               >
-                <option value="Operator">Оператор (Перегляд та реакція на тривоги)</option>
+                <option value="User">Користувач (Перегляд та реакція на тривоги)</option>
                 <option value="Admin">Адміністратор (Повний доступ + Налаштування)</option>
               </select>
             </div>

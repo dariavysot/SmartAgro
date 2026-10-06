@@ -114,7 +114,7 @@ export const Thresholds: React.FC = () => {
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 text-amber-300 text-xs">
           <ShieldAlert className="w-5 h-5 shrink-0 text-amber-400" />
           <span>
-            Ви увійшли як <strong>Оператор</strong>. Форма відкрита в режимі перегляду. Для зміни меж увійдіть під обліковим записом адміністратора.
+            Ви увійшли як <strong>Користувач</strong>. Форма відкрита в режимі перегляду. Для зміни меж увійдіть під обліковим записом адміністратора.
           </span>
         </div>
       )}
@@ -259,7 +259,7 @@ export const Thresholds: React.FC = () => {
         ) : (
           <div className="flex justify-end items-center gap-2 text-slate-500 text-xs">
             <Lock className="w-4 h-4" />
-            <span>Збереження заблоковано для ролі Operator</span>
+            <span>Збереження заблоковано для ролі Користувач</span>
           </div>
         )}
       </form>
