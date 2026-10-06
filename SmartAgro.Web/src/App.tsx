@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { GreenhouseProvider, useGreenhouse } from './context/GreenhouseContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
 import { Sidebar } from './components/layout/Sidebar';
@@ -28,13 +29,24 @@ import toast, { Toaster } from 'react-hot-toast';
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { logout, user } = useAuth();
+  const { selectedGreenhouse } = useGreenhouse();
   const { telemetry, isConnected } = useTelemetryHub();
 
   const [history, setHistory] = useState<ChartPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
 
+  // Очищення графіка при перемиканні теплиці
+  useEffect(() => {
+    setHistory([]);
+  }, [selectedGreenhouse?.id]);
+
   useEffect(() => {
     if (!telemetry) return;
+
+    // Фільтруємо телеметрію, щоб показувати лише дані поточної обраної теплиці
+    if (selectedGreenhouse && telemetry.greenhouseId && telemetry.greenhouseId !== selectedGreenhouse.id) {
+      return;
+    }
 
     const timeLabel = new Date(telemetry.timestamp || Date.now()).toLocaleTimeString([], {
       hour: '2-digit',
@@ -55,13 +67,15 @@ function DashboardLayout() {
       return updated.slice(-20);
     });
 
+    const greenhouseLabel = selectedGreenhouse?.name || 'теплиці';
+
     if (telemetry.temperature > 35) {
       const alertId = `temp-${Date.now()}`;
       toast.error(`Критичний перегрів: ${telemetry.temperature}°C!`, { id: alertId });
       setAlerts((prev) => [
         {
           id: alertId,
-          message: `Перегрів у секторі А: ${telemetry.temperature}°C`,
+          message: `Перегрів (${greenhouseLabel}): ${telemetry.temperature}°C`,
           type: 'Critical',
           timestamp: timeLabel,
         },
@@ -73,14 +87,14 @@ function DashboardLayout() {
       setAlerts((prev) => [
         {
           id: alertId,
-          message: `Критичний рівень CO₂: ${telemetry.co2Level} ppm`,
+          message: `Критичний рівень CO₂ (${greenhouseLabel}): ${telemetry.co2Level} ppm`,
           type: 'Critical',
           timestamp: timeLabel,
         },
         ...prev.slice(0, 4),
       ]);
     }
-  }, [telemetry]);
+  }, [telemetry, selectedGreenhouse]);
 
   const handleDismissAlert = (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
@@ -136,9 +150,11 @@ function DashboardLayout() {
             <div className="max-w-7xl mx-auto space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-100">Моніторинг Сектора А</h2>
+                  <h2 className="text-xl font-bold text-slate-100">
+                    {selectedGreenhouse?.name || 'Моніторинг об’єкта'}
+                  </h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    Живий потік телеметрії через SignalR • Користувач: {user?.email} ({user?.role})
+                    Локація: {selectedGreenhouse?.location || 'Не вказана'} • Користувач: {user?.username || user?.email} ({user?.role === 'Admin' ? 'Адміністратор' : 'Користувач'})
                   </p>
                 </div>
                 <button
@@ -253,19 +269,21 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Toaster position="top-right" />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+        <GreenhouseProvider>
+          <Toaster position="top-right" />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<DashboardLayout />} />
-            </Route>
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<DashboardLayout />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </GreenhouseProvider>
       </AuthProvider>
     </ThemeProvider>
   );
