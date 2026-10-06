@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sprout, LayoutDashboard, Bell, Sliders, ShieldCheck } from 'lucide-react';
+import { Sprout, LayoutDashboard, Bell, Sliders, Warehouse, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -9,12 +9,13 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
+    { id: 'greenhouses', label: 'Керування теплицями', icon: Warehouse },
     { id: 'alerts', label: 'Сповіщення', icon: Bell },
     { id: 'thresholds', label: 'Межі теплиці', icon: Sliders },
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4">
+    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 shrink-0 select-none">
       <div>
         <div className="flex items-center gap-3 px-2 py-4 mb-6">
           <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
@@ -27,17 +28,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
         </div>
 
         <nav className="space-y-1.5">
-          {menuItems.map(item => {
+          {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all cursor-pointer ${
                   isActive
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm shadow-emerald-950'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
                 }`}
               >
                 <Icon className="w-4 h-4" />
