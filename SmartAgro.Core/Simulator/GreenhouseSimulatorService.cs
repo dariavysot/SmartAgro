@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,17 +16,30 @@ public sealed class GreenhouseSimulatorService(
     IDiseasePredictionService mlService,
     ITelemetryCryptoService cryptoService,
     ITelemetryNotifier telemetryNotifier,
+    IConfiguration configuration,
     ILogger<GreenhouseSimulatorService> logger) : BackgroundService
 {
     private readonly Random _random = new();
 
+    // Стан теплиці для забезпечення теплової інерції (фізичної плавності)
+    private double _currentTemp = 21.5;
+    private double _currentHumidity = 68.0;
+    private double _currentCo2 = 720.0;
+    private double _currentSoil = 65.0;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("IoT симулятор теплиць запущено (Real-time streaming enabled).");
+        // Читання інтервалу з конфігурації (за замовчуванням 10 хвилин)
+        var intervalMinutes = configuration.GetValue<double>("SimulatorSettings:IntervalMinutes", 10.0);
+        var enableAnomalies = configuration.GetValue<bool>("SimulatorSettings:EnableAnomalies", true);
+        var interval = TimeSpan.FromMinutes(intervalMinutes);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
+        logger.LogInformation("IoT симулятор запущено. Інтервал опитування: {Minutes} хв.", intervalMinutes);
 
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        using var timer = new PeriodicTimer(interval);
+
+        // Виконуємо першу ітерацію одразу при старті сервісу
+        do
         {
             try
             {
@@ -46,26 +60,51 @@ public sealed class GreenhouseSimulatorService(
                     await dbContext.SaveChangesAsync(stoppingToken);
                 }
 
-                // 1. Моделювання фізичних параметрів
-                double temp = Math.Round(22.0 + 8.0 * Math.Sin(DateTime.UtcNow.Minute) + (_random.NextDouble() * 2 - 1), 2);
-                double humidity = Math.Round(65.0 + 15.0 * Math.Cos(DateTime.UtcNow.Minute) + (_random.NextDouble() * 4 - 2), 2);
-                double co2 = Math.Round(750.0 + (_random.NextDouble() * 300 - 150), 2);
-                double soilMoisture = Math.Round(60.0 + (_random.NextDouble() * 10 - 5), 2);
+                // 1. Фізична модель добового циклу (Diurnal Cycle)
+                var now = DateTime.UtcNow;
+                // Час доби в годинах (0.0 .. 23.99)
+                double hourOfDay = now.Hour + (now.Minute / 60.0);
 
-                // Аномалії для тестування
-                int anomalyCheck = _random.Next(1, 100);
-                if (anomalyCheck > 90)
+                // Температурний пік о 14:00 (сонячний полудень у теплиці), мінімум о 05:00
+                // phaseShift = 14:00 - 6 годин (четвертина періоду) = 8.0
+                double targetTemp = 22.0 + 5.5 * Math.Sin((2.0 * Math.PI / 24.0) * (hourOfDay - 8.0));
+
+                // Вологість обернено пропорційна температурі (вдень сухіше, вночі конденсат)
+                double targetHumidity = 70.0 - 18.0 * Math.Sin((2.0 * Math.PI / 24.0) * (hourOfDay - 8.0));
+
+                // CO2 падає вдень через фотосинтез і накопичується вночі
+                double targetCo2 = 800.0 - 250.0 * Math.Sin((2.0 * Math.PI / 24.0) * (hourOfDay - 8.0));
+
+                // 2. Інерційне наближення до цільової точки з мікрошумом датчика (+-0.2..0.5)
+                _currentTemp = Math.Round(_currentTemp * 0.7 + targetTemp * 0.3 + (_random.NextDouble() * 0.4 - 0.2), 2);
+                _currentHumidity = Math.Round(_currentHumidity * 0.7 + targetHumidity * 0.3 + (_random.NextDouble() * 1.0 - 0.5), 2);
+                _currentCo2 = Math.Round(_currentCo2 * 0.7 + targetCo2 * 0.3 + (_random.NextDouble() * 20.0 - 10.0), 2);
+
+                // Вологість ґрунту випаровується повільно
+                _currentSoil = Math.Round(_currentSoil - (_random.NextDouble() * 0.15) + (_currentSoil < 48.0 ? 15.0 : 0.0), 2);
+
+                double temp = _currentTemp;
+                double humidity = _currentHumidity;
+                double co2 = _currentCo2;
+                double soilMoisture = _currentSoil;
+
+                // 3. Рідкісні аномалії (імовірність 2%)
+                if (enableAnomalies)
                 {
-                    temp = 36.5;
-                    logger.LogWarning("[ANOMALY GENERATED] Критичний стрибок температури: {Temp}°C", temp);
-                }
-                else if (anomalyCheck < 10)
-                {
-                    co2 = 1450.0;
-                    logger.LogWarning("[ANOMALY GENERATED] Критична концентрація CO2: {Co2} ppm", co2);
+                    int anomalyChance = _random.Next(1, 100);
+                    if (anomalyChance == 99)
+                    {
+                        temp = 36.2;
+                        logger.LogWarning("[ANOMALY GENERATED] Критичний перегрів: {Temp}°C", temp);
+                    }
+                    else if (anomalyChance == 1)
+                    {
+                        co2 = 1380.0;
+                        logger.LogWarning("[ANOMALY GENERATED] Критичний рівень CO2: {Co2} ppm", co2);
+                    }
                 }
 
-                // 2. ML-інференс ризику захворювань
+                // 4. ML-інференс ризику захворювань
                 float risk = mlService.PredictDiseaseRisk(temp, humidity, co2, soilMoisture);
 
                 var rawData = new SensorData
@@ -78,22 +117,21 @@ public sealed class GreenhouseSimulatorService(
                     Timestamp = DateTime.UtcNow
                 };
 
-                // 3. Шифрування та підпис пакета
+                // 5. Шифрування та HMAC підпис
                 var encryptedPackage = cryptoService.EncryptAndSign(rawData);
 
-                // 4. Верифікація та дешифрування
+                // 6. Верифікація та збереження
                 var verifiedData = cryptoService.VerifyAndDecrypt<SensorData>(encryptedPackage);
                 verifiedData.Signature = encryptedPackage.HmacSignatureBase64;
                 verifiedData.Timestamp = encryptedPackage.TimestampUtc;
 
-                // 5. Запис у базу даних
                 await dbContext.SensorData.AddAsync(verifiedData, stoppingToken);
                 await dbContext.SaveChangesAsync(stoppingToken);
 
-                // 6. Перевірка порогів та створення тривог
+                // 7. Перевірка порогів та створення тривог
                 await alertService.CheckThresholdsAndCreateAlertsAsync(verifiedData, stoppingToken);
 
-                // 7. Трансляція підписникам через нотифікатор
+                // 8. Трансляція підписникам
                 await telemetryNotifier.BroadcastTelemetryAsync(new
                 {
                     verifiedData.Id,
@@ -107,7 +145,7 @@ public sealed class GreenhouseSimulatorService(
                     verifiedData.Signature
                 }, stoppingToken);
 
-                logger.LogInformation("[IoT Telemetry -> Live Stream] T: {Temp}°C | H: {Humidity}% | CO2: {Co2} ppm | Risk: {Risk}%",
+                logger.LogInformation("[IoT Telemetry] T: {Temp}°C | H: {Humidity}% | CO2: {Co2} ppm | ML Risk: {Risk}%",
                     temp, humidity, co2, verifiedData.DiseaseRiskScore);
             }
             catch (Exception ex)
@@ -115,5 +153,6 @@ public sealed class GreenhouseSimulatorService(
                 logger.LogError(ex, "Помилка під час ітерації фонового симулятора.");
             }
         }
+        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
     }
 }
