@@ -7,7 +7,6 @@ using SmartAgro.Core.Data;
 using SmartAgro.Core.Entities;
 using SmartAgro.Core.ML;
 using SmartAgro.Core.Security;
-using SmartAgro.Core.Telemetry;
 
 namespace SmartAgro.Core.Simulator;
 
@@ -15,14 +14,14 @@ public sealed class GreenhouseSimulatorService(
     IServiceScopeFactory scopeFactory,
     IDiseasePredictionService mlService,
     ITelemetryCryptoService cryptoService,
+    ITelemetryNotifier telemetryNotifier,
     ILogger<GreenhouseSimulatorService> logger) : BackgroundService
 {
     private readonly Random _random = new();
-    private double _timeStep = 0.0;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation(">>> IoT Greenhouse Simulator запущено. Інтервал опитування: 4 секунди.");
+        logger.LogInformation("IoT симулятор теплиць запущено (Real-time streaming enabled).");
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(4));
 
@@ -30,95 +29,91 @@ public sealed class GreenhouseSimulatorService(
         {
             try
             {
-                await ProcessSimulationTickAsync(stoppingToken);
+                using var scope = scopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var alertService = scope.ServiceProvider.GetRequiredService<IAlertService>();
+
+                var greenhouse = await dbContext.Greenhouses.FirstOrDefaultAsync(stoppingToken);
+                if (greenhouse == null)
+                {
+                    greenhouse = new Greenhouse
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = "Головна Теплиця (Smart Unit 1)",
+                        Location = "Сектор А"
+                    };
+                    await dbContext.Greenhouses.AddAsync(greenhouse, stoppingToken);
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                }
+
+                // 1. Моделювання фізичних параметрів
+                double temp = Math.Round(22.0 + 8.0 * Math.Sin(DateTime.UtcNow.Minute) + (_random.NextDouble() * 2 - 1), 2);
+                double humidity = Math.Round(65.0 + 15.0 * Math.Cos(DateTime.UtcNow.Minute) + (_random.NextDouble() * 4 - 2), 2);
+                double co2 = Math.Round(750.0 + (_random.NextDouble() * 300 - 150), 2);
+                double soilMoisture = Math.Round(60.0 + (_random.NextDouble() * 10 - 5), 2);
+
+                // Аномалії для тестування
+                int anomalyCheck = _random.Next(1, 100);
+                if (anomalyCheck > 90)
+                {
+                    temp = 36.5;
+                    logger.LogWarning("[ANOMALY GENERATED] Критичний стрибок температури: {Temp}°C", temp);
+                }
+                else if (anomalyCheck < 10)
+                {
+                    co2 = 1450.0;
+                    logger.LogWarning("[ANOMALY GENERATED] Критична концентрація CO2: {Co2} ppm", co2);
+                }
+
+                // 2. ML-інференс ризику захворювань
+                float risk = mlService.PredictDiseaseRisk(temp, humidity, co2, soilMoisture);
+
+                var rawData = new SensorData
+                {
+                    GreenhouseId = greenhouse.Id,
+                    Temperature = temp,
+                    Humidity = humidity,
+                    Co2Level = co2,
+                    DiseaseRiskScore = Math.Round(risk, 2),
+                    Timestamp = DateTime.UtcNow
+                };
+
+                // 3. Шифрування та підпис пакета
+                var encryptedPackage = cryptoService.EncryptAndSign(rawData);
+
+                // 4. Верифікація та дешифрування
+                var verifiedData = cryptoService.VerifyAndDecrypt<SensorData>(encryptedPackage);
+                verifiedData.Signature = encryptedPackage.HmacSignatureBase64;
+                verifiedData.Timestamp = encryptedPackage.TimestampUtc;
+
+                // 5. Запис у базу даних
+                await dbContext.SensorData.AddAsync(verifiedData, stoppingToken);
+                await dbContext.SaveChangesAsync(stoppingToken);
+
+                // 6. Перевірка порогів та створення тривог
+                await alertService.CheckThresholdsAndCreateAlertsAsync(verifiedData, stoppingToken);
+
+                // 7. Трансляція підписникам через нотифікатор
+                await telemetryNotifier.BroadcastTelemetryAsync(new
+                {
+                    verifiedData.Id,
+                    verifiedData.GreenhouseId,
+                    verifiedData.Temperature,
+                    verifiedData.Humidity,
+                    verifiedData.Co2Level,
+                    verifiedData.DiseaseRiskScore,
+                    soilMoisture,
+                    verifiedData.Timestamp,
+                    verifiedData.Signature
+                }, stoppingToken);
+
+                logger.LogInformation("[IoT Telemetry -> Live Stream] T: {Temp}°C | H: {Humidity}% | CO2: {Co2} ppm | Risk: {Risk}%",
+                    temp, humidity, co2, verifiedData.DiseaseRiskScore);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Помилка під час ітерації IoT-симулятора.");
+                logger.LogError(ex, "Помилка під час ітерації фонового симулятора.");
             }
         }
-
-        logger.LogInformation(">>> IoT Greenhouse Simulator зупинено.");
-    }
-
-    private async Task ProcessSimulationTickAsync(CancellationToken ct)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var alertService = scope.ServiceProvider.GetRequiredService<IAlertService>();
-
-        // Отримуємо першу теплицю або створюємо демонстраційну
-        var greenhouse = await dbContext.Greenhouses.FirstOrDefaultAsync(ct);
-        if (greenhouse == null)
-        {
-            greenhouse = new Greenhouse { Name = "Основна смарт-теплиця №1", Location = "Сектор А" };
-            await dbContext.Greenhouses.AddAsync(greenhouse, ct);
-            await dbContext.SaveChangesAsync(ct);
-        }
-
-        // 1. Моделювання фізичних коливань мікроклімату
-        _timeStep += 0.15;
-        double sinWave = Math.Sin(_timeStep);
-
-        double temp = 26.0 + sinWave * 6.0 + (_random.NextDouble() - 0.5) * 1.5;         // 18 - 34 °C
-        double hum = 65.0 - sinWave * 20.0 + (_random.NextDouble() - 0.5) * 4.0;         // 40 - 95 %
-        double co2 = 800.0 + sinWave * 350.0 + (_random.NextDouble() - 0.5) * 50.0;      // 400 - 1400 ppm
-        double simulatedSoilMoisture = 55.0 + Math.Cos(_timeStep) * 20.0;                 // 30 - 80 % для ML-моделі
-
-        // 2. Імітація випадкових аномалій (ймовірність ~10%)
-        bool isAnomaly = _random.Next(0, 10) == 0;
-        if (isAnomaly)
-        {
-            int anomalyType = _random.Next(0, 3);
-            if (anomalyType == 0)
-            {
-                temp = 36.5; // Перегрів
-                logger.LogWarning("[ANOMALY GENERATED] Критичний стрибок температури: {Temp}°C", temp);
-            }
-            else if (anomalyType == 1)
-            {
-                hum = 95.5; // Підвищена вологість
-                logger.LogWarning("[ANOMALY GENERATED] Критичний рівень вологості: {Hum}%", hum);
-            }
-            else
-            {
-                co2 = 1450.0; // Критичний рівень CO2
-                logger.LogWarning("[ANOMALY GENERATED] Критична концентрація CO2: {Co2} ppm", co2);
-            }
-        }
-
-        // 3. Збагачення ML-інференсом (ONNX Model)
-        float diseaseRisk = mlService.PredictDiseaseRisk(temp, hum, co2, simulatedSoilMoisture);
-
-        // 4. Формування базової моделі SensorData
-        var rawTelemetry = new SensorData
-        {
-            GreenhouseId = greenhouse.Id,
-            Temperature = Math.Round(temp, 2),
-            Humidity = Math.Round(hum, 2),
-            Co2Level = Math.Round(co2, 2),
-            DiseaseRiskScore = Math.Round(diseaseRisk, 2),
-            Timestamp = DateTime.UtcNow
-        };
-
-        // 5. Криптографічний захист передачі (Data in Transit): AES-256 + HMAC-SHA256
-        EncryptedTelemetryPackage encryptedPackage = cryptoService.EncryptAndSign(rawTelemetry);
-
-        // 6. Імітація прийому на сервері: перевірка цілісності та розшифрування
-        SensorData validatedData = cryptoService.VerifyAndDecrypt<SensorData>(encryptedPackage);
-
-        // Зберігаємо підпис для аудиту цілісності
-        validatedData.Signature = encryptedPackage.HmacSignatureBase64;
-
-        // 7. Збереження в базу даних
-        await dbContext.SensorData.AddAsync(validatedData, ct);
-        await dbContext.SaveChangesAsync(ct);
-
-        logger.LogInformation(
-            "[IoT Telemetry] T: {Temp}°C | H: {Hum}% | CO2: {Co2} ppm | Risk: {Risk}% (Захищено AES-256 + HMAC)",
-            validatedData.Temperature, validatedData.Humidity, validatedData.Co2Level, validatedData.DiseaseRiskScore);
-
-        // 8. Перевірка порогів та автоматичне створення Alerts
-        await alertService.CheckThresholdsAndCreateAlertsAsync(validatedData, ct);
     }
 }
