@@ -7,6 +7,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { Thresholds } from './pages/Thresholds';
 import { MetricCard } from './components/dashboard/MetricCard';
 import { TelemetryChart, type ChartPoint } from './components/dashboard/TelemetryChart';
 import { DiseaseRiskWidget } from './components/dashboard/DiseaseRiskWidget';
@@ -32,7 +33,6 @@ function DashboardLayout() {
   const [history, setHistory] = useState<ChartPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
 
-  // Обробка нових телеметричних пакетів
   useEffect(() => {
     if (!telemetry) return;
 
@@ -42,7 +42,6 @@ function DashboardLayout() {
       second: '2-digit',
     });
 
-    // Оновлення ковзного буфера точок графіка (максимум 20)
     setHistory((prev) => {
       const updated = [
         ...prev,
@@ -56,7 +55,6 @@ function DashboardLayout() {
       return updated.slice(-20);
     });
 
-    // Перевірка на критичні аномалії для спливаючих повідомлень
     if (telemetry.temperature > 35) {
       const alertId = `temp-${Date.now()}`;
       toast.error(`Критичний перегрів: ${telemetry.temperature}°C!`, { id: alertId });
@@ -132,115 +130,119 @@ function DashboardLayout() {
         <Navbar isStreaming={isConnected} />
 
         <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-100">Моніторинг Сектора А</h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Живий потік телеметрії через SignalR • Користувач: {user?.email} ({user?.role})
-                </p>
-              </div>
-              <button
-                onClick={logout}
-                className="px-3.5 py-1.5 text-xs text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
-              >
-                Вийти
-              </button>
-            </div>
-
-            {/* Метричні картки */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard
-                title="Температура"
-                value={currentTemp}
-                unit="°C"
-                icon={Thermometer}
-                status={tempStatus.status}
-                statusText={tempStatus.text}
-              />
-              <MetricCard
-                title="Вологість повітря"
-                value={currentHumidity}
-                unit="%"
-                icon={Droplets}
-                status={humStatus.status}
-                statusText={humStatus.text}
-              />
-              <MetricCard
-                title="Рівень CO₂"
-                value={currentCo2}
-                unit="ppm"
-                icon={Cloud}
-                status={co2Status.status}
-                statusText={co2Status.text}
-              />
-              <MetricCard
-                title="Вологість ґрунту"
-                value={currentSoil}
-                unit="%"
-                icon={Layers}
-                status={soilStatus.status}
-                statusText={soilStatus.text}
-              />
-            </div>
-
-            {/* Графіки та ML-віджет */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <TelemetryChart data={history} />
-              </div>
-              <div>
-                <DiseaseRiskWidget riskScore={currentRisk} />
-              </div>
-            </div>
-
-            {/* Сповіщення та системні статуси */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <AlertsPanel alerts={alerts} onDismiss={handleDismissAlert} />
-              </div>
-
-              <div className="flex flex-col gap-3 justify-between">
-                <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
-                  <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                    <Activity className="w-5 h-5 text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400">Канал телеметрії</p>
-                    <p className="text-sm font-semibold text-emerald-400">
-                      {isConnected ? 'SignalR WebSocket активний' : 'Підключення...'}
-                    </p>
-                  </div>
+          {activeTab === 'thresholds' ? (
+            <Thresholds />
+          ) : (
+            <div className="max-w-7xl mx-auto space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-100">Моніторинг Сектора А</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Живий потік телеметрії через SignalR • Користувач: {user?.email} ({user?.role})
+                  </p>
                 </div>
+                <button
+                  onClick={logout}
+                  className="px-3.5 py-1.5 text-xs text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
+                >
+                  Вийти
+                </button>
+              </div>
 
-                <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
-                  <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                    <Cpu className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400">Останній пакет</p>
-                    <p className="text-sm font-semibold text-blue-400">
-                      {telemetry?.timestamp
-                        ? new Date(telemetry.timestamp).toLocaleTimeString()
-                        : 'Очікування даних...'}
-                    </p>
-                  </div>
+              {/* Метричні картки */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <MetricCard
+                  title="Температура"
+                  value={currentTemp}
+                  unit="°C"
+                  icon={Thermometer}
+                  status={tempStatus.status}
+                  statusText={tempStatus.text}
+                />
+                <MetricCard
+                  title="Вологість повітря"
+                  value={currentHumidity}
+                  unit="%"
+                  icon={Droplets}
+                  status={humStatus.status}
+                  statusText={humStatus.text}
+                />
+                <MetricCard
+                  title="Рівень CO₂"
+                  value={currentCo2}
+                  unit="ppm"
+                  icon={Cloud}
+                  status={co2Status.status}
+                  statusText={co2Status.text}
+                />
+                <MetricCard
+                  title="Вологість ґрунту"
+                  value={currentSoil}
+                  unit="%"
+                  icon={Layers}
+                  status={soilStatus.status}
+                  statusText={soilStatus.text}
+                />
+              </div>
+
+              {/* Графіки та ML */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <TelemetryChart data={history} />
                 </div>
-
-                <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
-                  <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                    <ShieldCheck className="w-5 h-5 text-amber-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400">Криптографічний підпис</p>
-                    <p className="text-sm font-semibold text-amber-400 truncate max-w-[180px]">
-                      {telemetry?.signature ? `${telemetry.signature.slice(0, 16)}...` : 'AES/HMAC Verified'}
-                    </p>
-                  </div>
+                <div>
+                  <DiseaseRiskWidget riskScore={currentRisk} />
                 </div>
               </div>
+
+              {/* Сповіщення та системний статус */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <AlertsPanel alerts={alerts} onDismiss={handleDismissAlert} />
+                </div>
+
+                <div className="flex flex-col gap-3 justify-between">
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                      <Activity className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Канал телеметрії</p>
+                      <p className="text-sm font-semibold text-emerald-400">
+                        {isConnected ? 'SignalR WebSocket активний' : 'Підключення...'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                      <Cpu className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Останній пакет</p>
+                      <p className="text-sm font-semibold text-blue-400">
+                        {telemetry?.timestamp
+                          ? new Date(telemetry.timestamp).toLocaleTimeString()
+                          : 'Очікування даних...'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                      <ShieldCheck className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Криптографічний підпис</p>
+                      <p className="text-sm font-semibold text-amber-400 truncate max-w-[180px]">
+                        {telemetry?.signature ? `${telemetry.signature.slice(0, 16)}...` : 'AES/HMAC Verified'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
