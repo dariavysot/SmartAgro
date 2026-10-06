@@ -24,13 +24,15 @@ import {
   Activity,
   ShieldCheck,
   Cpu,
+  Warehouse,
+  Plus,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { logout, user } = useAuth();
-  const { selectedGreenhouse } = useGreenhouse();
+  const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
   const { telemetry, isConnected } = useTelemetryHub();
 
   const [history, setHistory] = useState<ChartPoint[]>([]);
@@ -44,7 +46,7 @@ function DashboardLayout() {
   useEffect(() => {
     if (!telemetry) return;
 
-    // Фільтруємо телеметрію, щоб показувати лише дані поточної обраної теплиці
+    // Фільтруємо телеметрію лише для обраної теплиці
     if (selectedGreenhouse && telemetry.greenhouseId && telemetry.greenhouseId !== selectedGreenhouse.id) {
       return;
     }
@@ -102,35 +104,43 @@ function DashboardLayout() {
     toast.success('Інцидент позначено як вирішений');
   };
 
-  const getTempStatus = (temp: number): { status: MetricStatus; text: string } => {
+  const getTempStatus = (temp?: number): { status: MetricStatus; text: string } => {
+    if (temp === undefined) return { status: 'normal', text: 'Очікування' };
     if (temp > 32 || temp < 15) return { status: 'critical', text: 'Критично' };
     if (temp > 28 || temp < 18) return { status: 'warning', text: 'Увага' };
     return { status: 'normal', text: 'Норма' };
   };
 
-  const getHumidityStatus = (hum: number): { status: MetricStatus; text: string } => {
+  const getHumidityStatus = (hum?: number): { status: MetricStatus; text: string } => {
+    if (hum === undefined) return { status: 'normal', text: 'Очікування' };
     if (hum > 85 || hum < 40) return { status: 'critical', text: 'Критично' };
     if (hum > 75 || hum < 50) return { status: 'warning', text: 'Увага' };
     return { status: 'normal', text: 'Норма' };
   };
 
-  const getCo2Status = (co2: number): { status: MetricStatus; text: string } => {
+  const getCo2Status = (co2?: number): { status: MetricStatus; text: string } => {
+    if (co2 === undefined) return { status: 'normal', text: 'Очікування' };
     if (co2 > 1200) return { status: 'critical', text: 'Критично' };
     if (co2 > 950) return { status: 'warning', text: 'Увага' };
     return { status: 'normal', text: 'Норма' };
   };
 
-  const getSoilStatus = (soil: number): { status: MetricStatus; text: string } => {
+  const getSoilStatus = (soil?: number): { status: MetricStatus; text: string } => {
+    if (soil === undefined) return { status: 'normal', text: 'Очікування' };
     if (soil < 40 || soil > 85) return { status: 'critical', text: 'Критично' };
     if (soil < 50 || soil > 75) return { status: 'warning', text: 'Увага' };
     return { status: 'normal', text: 'Норма' };
   };
 
-  const currentTemp = telemetry?.temperature ?? 22.4;
-  const currentHumidity = telemetry?.humidity ?? 65.0;
-  const currentCo2 = telemetry?.co2Level ?? 750.0;
-  const currentSoil = telemetry?.soilMoisture ?? 60.0;
-  const currentRisk = telemetry?.diseaseRiskScore ?? 18.5;
+  // Показуємо дані лише якщо вони прийшли від обраної теплиці
+  const isCurrentGreenhouseTelemetry =
+    Boolean(telemetry && selectedGreenhouse && telemetry.greenhouseId === selectedGreenhouse.id);
+
+  const currentTemp = isCurrentGreenhouseTelemetry ? telemetry?.temperature : undefined;
+  const currentHumidity = isCurrentGreenhouseTelemetry ? telemetry?.humidity : undefined;
+  const currentCo2 = isCurrentGreenhouseTelemetry ? telemetry?.co2Level : undefined;
+  const currentSoil = isCurrentGreenhouseTelemetry ? telemetry?.soilMoisture : undefined;
+  const currentRisk = isCurrentGreenhouseTelemetry ? telemetry?.diseaseRiskScore : undefined;
 
   const tempStatus = getTempStatus(currentTemp);
   const humStatus = getHumidityStatus(currentHumidity);
@@ -149,12 +159,32 @@ function DashboardLayout() {
             <Thresholds />
           ) : activeTab === 'greenhouses' ? (
             <Greenhouses />
+          ) : !isLoading && greenhouses.length === 0 ? (
+            /* Empty State: Коли у користувача взагалі немає теплиць */
+            <div className="max-w-2xl mx-auto mt-16 p-8 bg-slate-900/60 border border-slate-800 rounded-3xl text-center space-y-4">
+              <div className="w-14 h-14 mx-auto bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
+                <Warehouse className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-100">У вас ще немає підключених теплиць</h2>
+              <p className="text-sm text-slate-400 max-w-md mx-auto">
+                Щоб розпочати IoT-моніторинг мікроклімату, додайте свій перший тепличний сектор або зверніться до адміністратора.
+              </p>
+              <div className="pt-2">
+                <button
+                  onClick={() => setActiveTab('greenhouses')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  Перейти до керування теплицями
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-slate-100">
-                    {selectedGreenhouse?.name || 'Моніторинг об’єкта'}
+                    {selectedGreenhouse?.name || 'Завантаження об’єкта...'}
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
                     Локація: {selectedGreenhouse?.location || 'Не вказана'} • Користувач: {user?.username || user?.email} ({user?.role === 'Admin' ? 'Адміністратор' : 'Користувач'})
@@ -172,7 +202,7 @@ function DashboardLayout() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricCard
                   title="Температура"
-                  value={currentTemp}
+                  value={currentTemp !== undefined ? currentTemp : '—'}
                   unit="°C"
                   icon={Thermometer}
                   status={tempStatus.status}
@@ -180,7 +210,7 @@ function DashboardLayout() {
                 />
                 <MetricCard
                   title="Вологість повітря"
-                  value={currentHumidity}
+                  value={currentHumidity !== undefined ? currentHumidity : '—'}
                   unit="%"
                   icon={Droplets}
                   status={humStatus.status}
@@ -188,7 +218,7 @@ function DashboardLayout() {
                 />
                 <MetricCard
                   title="Рівень CO₂"
-                  value={currentCo2}
+                  value={currentCo2 !== undefined ? currentCo2 : '—'}
                   unit="ppm"
                   icon={Cloud}
                   status={co2Status.status}
@@ -196,7 +226,7 @@ function DashboardLayout() {
                 />
                 <MetricCard
                   title="Вологість ґрунту"
-                  value={currentSoil}
+                  value={currentSoil !== undefined ? currentSoil : '—'}
                   unit="%"
                   icon={Layers}
                   status={soilStatus.status}
@@ -210,7 +240,7 @@ function DashboardLayout() {
                   <TelemetryChart data={history} />
                 </div>
                 <div>
-                  <DiseaseRiskWidget riskScore={currentRisk} />
+                  <DiseaseRiskWidget riskScore={currentRisk ?? 0} />
                 </div>
               </div>
 
@@ -240,7 +270,7 @@ function DashboardLayout() {
                     <div>
                       <p className="text-xs text-slate-400">Останній пакет</p>
                       <p className="text-sm font-semibold text-blue-400">
-                        {telemetry?.timestamp
+                        {isCurrentGreenhouseTelemetry && telemetry?.timestamp
                           ? new Date(telemetry.timestamp).toLocaleTimeString()
                           : 'Очікування даних...'}
                       </p>
@@ -254,7 +284,9 @@ function DashboardLayout() {
                     <div>
                       <p className="text-xs text-slate-400">Криптографічний підпис</p>
                       <p className="text-sm font-semibold text-amber-400 truncate max-w-[180px]">
-                        {telemetry?.signature ? `${telemetry.signature.slice(0, 16)}...` : 'AES/HMAC Verified'}
+                        {isCurrentGreenhouseTelemetry && telemetry?.signature
+                          ? `${telemetry.signature.slice(0, 16)}...`
+                          : 'AES/HMAC Verified'}
                       </p>
                     </div>
                   </div>
