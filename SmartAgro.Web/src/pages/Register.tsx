@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { useAuth } from '../context/AuthContext';
 import type { AuthResponse } from '../types/auth';
 import { Sprout, Lock, Mail, AlertCircle, Shield, User } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -13,7 +13,6 @@ export const Register: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,15 +21,16 @@ export const Register: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post<AuthResponse>('/Auth/register', {
-        username: username || email.split('@')[0], // Передаємо username
-        email,
+      await apiClient.post<AuthResponse>('/Auth/register', {
+        username: username.trim() || email.split('@')[0],
+        email: email.trim(),
         password,
         role,
       });
 
-      login(response.data);
-      navigate('/');
+      // Показуємо підтвердження та перенаправляємо на сторінку входу
+      toast.success('Обліковий запис успішно створено! Увійдіть за допомогою вашого email та пароля.');
+      navigate('/login');
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.message ||
@@ -117,7 +117,7 @@ export const Register: React.FC = () => {
                 onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}
                 className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer"
               >
-                <option value="User">Користувач (Перегляд та реакція на тривоги)</option>
+                <option value="User">Користувач (Власник теплиці)</option>
                 <option value="Admin">Адміністратор (Повний доступ + Налаштування)</option>
               </select>
             </div>

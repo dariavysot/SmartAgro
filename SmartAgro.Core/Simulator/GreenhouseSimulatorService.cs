@@ -53,19 +53,22 @@ public sealed class GreenhouseSimulatorService(
                     // 1. Шукаємо будь-якого наявного користувача
                     var defaultUser = await dbContext.Users.FirstOrDefaultAsync(stoppingToken);
 
-                    // Якщо база порожня — створюємо системного користувача (Admin), щоб задовольнити foreign key
                     if (defaultUser == null)
                     {
                         var adminRole = await dbContext.Roles.FirstOrDefaultAsync(r => r.Name == UserRole.Admin, stoppingToken)
                                         ?? await dbContext.Roles.FirstOrDefaultAsync(stoppingToken);
+
+                        // Отримуємо зареєстрований IPasswordHasher зі scope
+                        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+                        var (passwordHash, salt) = passwordHasher.HashPassword("Admin123!");
 
                         defaultUser = new User
                         {
                             Id = Guid.NewGuid(),
                             Username = "admin",
                             Email = "admin@smartagro.local",
-                            PasswordHash = "AQAAAAIAAYagAAAAEOvSystemInitHashDefaultPlaceHolder==",
-                            Salt = "SystemAutoSeedSalt==",
+                            PasswordHash = passwordHash,
+                            Salt = salt,
                             RoleId = adminRole?.Id ?? 1,
                             CreatedAt = DateTime.UtcNow
                         };
@@ -73,7 +76,7 @@ public sealed class GreenhouseSimulatorService(
                         await dbContext.Users.AddAsync(defaultUser, stoppingToken);
                         await dbContext.SaveChangesAsync(stoppingToken);
 
-                        logger.LogInformation("Створено початкового системного користувача: {Email} (ID: {UserId})", defaultUser.Email, defaultUser.Id);
+                        logger.LogInformation("Створено початкового системного адміністратора: {Email} (пароль: Admin123!) (ID: {UserId})", defaultUser.Email, defaultUser.Id);
                     }
 
                     // 2. Створюємо першу теплицю з коректним UserId
