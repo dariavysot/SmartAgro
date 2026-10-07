@@ -247,22 +247,29 @@ export const Greenhouses: React.FC = () => {
         )}
       </div>
 
-      {/* Список об'єктів */}
+      {/* Список об'єктів (кожна картка клікабельна для вибору) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {greenhouses.map((gh: any) => {
           const isSelected = selectedGreenhouse?.id === gh.id;
           return (
             <div
               key={gh.id}
-              className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+              onClick={() => setSelectedGreenhouseId(gh.id)}
+              className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer select-none hover:scale-[1.01] ${
                 isSelected
-                  ? 'bg-slate-900 border-emerald-500/50 shadow-md shadow-emerald-950/40'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  ? 'bg-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/40'
+                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90'
               }`}
             >
               <div>
                 <div className="flex items-start justify-between mb-3">
-                  <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                  <div
+                    className={`p-2.5 rounded-xl border transition-colors ${
+                      isSelected
+                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    }`}
+                  >
                     <Warehouse className="w-5 h-5" />
                   </div>
 
@@ -311,13 +318,10 @@ export const Greenhouses: React.FC = () => {
 
               <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-mono">ID: {gh.id.slice(0, 8)}...</span>
-                {!isSelected && (
-                  <button
-                    onClick={() => setSelectedGreenhouseId(gh.id)}
-                    className="px-3 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/10 rounded-lg border border-emerald-500/30 transition-colors cursor-pointer"
-                  >
-                    Вибрати
-                  </button>
+                {isSelected && (
+                  <span className="text-[11px] font-semibold text-emerald-400">
+                    Вибрано
+                  </span>
                 )}
               </div>
             </div>
@@ -347,7 +351,6 @@ export const Greenhouses: React.FC = () => {
             )}
 
             <form onSubmit={handleCreate} className="space-y-4">
-              {/* Пошук та вибір клієнта */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Клієнт / Власник теплиці
@@ -359,7 +362,6 @@ export const Greenhouses: React.FC = () => {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {/* Поле пошуку за ім'ям або email */}
                     <div className="relative">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input
@@ -371,7 +373,6 @@ export const Greenhouses: React.FC = () => {
                       />
                     </div>
 
-                    {/* Інтерактивний список для швидкого вибору */}
                     <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-800/80 rounded-xl p-1.5 bg-slate-950/40">
                       {filteredUsers.length === 0 ? (
                         <p className="text-xs text-slate-500 text-center py-3">Клієнтів не знайдено</p>
