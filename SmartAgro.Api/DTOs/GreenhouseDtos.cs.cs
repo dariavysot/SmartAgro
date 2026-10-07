@@ -4,9 +4,12 @@ public class CreateGreenhouseDto
 {
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
-    public double InitialTemperature { get; set; }
-    public double InitialHumidity { get; set; }
-    public double InitialCo2 { get; set; }
+    public Guid UserId { get; set; } // Обов'язкова прив'язка до клієнта адміністратором
+
+    // Початкові межі/значення за замовчуванням (опціонально)
+    public double InitialTemperature { get; set; } = 22.0;
+    public double InitialHumidity { get; set; } = 65.0;
+    public double InitialCo2 { get; set; } = 600.0;
 }
 
 public class UpdateGreenhouseDto
@@ -15,7 +18,9 @@ public class UpdateGreenhouseDto
     public string Location { get; set; } = string.Empty;
 }
 
-// DTO для демонстрації LINQ-проєкції (Select) та агрегації
+/// <summary>
+/// DTO для LINQ-проєкції, агрегації статистики та аналітики дашборду
+/// </summary>
 public class GreenhouseSummaryDto
 {
     public Guid Id { get; set; }
