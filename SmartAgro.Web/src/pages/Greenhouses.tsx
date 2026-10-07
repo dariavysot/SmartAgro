@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGreenhouse } from '../context/GreenhouseContext';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
-import { Warehouse, Plus, MapPin, CheckCircle2, AlertCircle, User as UserIcon, Pencil } from 'lucide-react';
+import { Warehouse, Plus, MapPin, CheckCircle2, AlertCircle, User as UserIcon, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface RoleObject {
@@ -28,18 +28,22 @@ export const Greenhouses: React.FC = () => {
       : user?.role;
   const isAdmin = userRoleName === 'Admin';
 
-  // Стан для створення нової теплиці
+  // Стан для створення
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
 
-  // Стан для редагування існуючої теплиці
+  // Стан для редагування
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingGreenhouseId, setEditingGreenhouseId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editUserId, setEditUserId] = useState('');
+
+  // Стан для видалення
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingGreenhouse, setDeletingGreenhouse] = useState<{ id: string; name: string } | null>(null);
 
   const [usersList, setUsersList] = useState<UserOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,7 +65,7 @@ export const Greenhouses: React.FC = () => {
     }
   }, [isAdmin]);
 
-  // Відкриття модального вікна редагування з передзаповненням
+  // Відкриття форми редагування
   const openEditModal = (gh: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingGreenhouseId(gh.id);
@@ -70,6 +74,13 @@ export const Greenhouses: React.FC = () => {
     setEditUserId(gh.ownerId || gh.userId || (usersList.length > 0 ? usersList[0].id : ''));
     setError(null);
     setIsEditModalOpen(true);
+  };
+
+  // Відкриття підтвердження видалення
+  const openDeleteModal = (gh: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingGreenhouse({ id: gh.id, name: gh.name });
+    setIsDeleteModalOpen(true);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -133,6 +144,35 @@ export const Greenhouses: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deletingGreenhouse) return;
+
+    try {
+      setIsSubmitting(true);
+      await apiClient.delete(`/Greenhouses/${deletingGreenhouse.id}`);
+
+      toast.success(`Теплицю "${deletingGreenhouse.name}" успішно демонтовано та видалено!`);
+      
+      // Якщо видаляємо поточну обрану теплицю — скидаємо або перемикаємо вибір
+      if (selectedGreenhouse?.id === deletingGreenhouse.id) {
+        const remaining = greenhouses.filter((g: any) => g.id !== deletingGreenhouse.id);
+        if (remaining.length > 0) {
+          setSelectedGreenhouseId(remaining[0].id);
+        }
+      }
+
+      setIsDeleteModalOpen(false);
+      setDeletingGreenhouse(null);
+
+      await refreshGreenhouses();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Не вдалося видалити теплицю.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Шапка */}
@@ -182,19 +222,28 @@ export const Greenhouses: React.FC = () => {
                     <Warehouse className="w-5 h-5" />
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    {/* Кнопка швидкого редагування для адміна */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Кнопки адміністрування: Редагувати та Видалити */}
                     {isAdmin && (
-                      <button
-                        onClick={(e) => openEditModal(gh, e)}
-                        title="Редагувати параметри"
-                        className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      <>
+                        <button
+                          onClick={(e) => openEditModal(gh, e)}
+                          title="Редагувати параметри"
+                          className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => openDeleteModal(gh, e)}
+                          title="Демонтувати / Видалити"
+                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                     {isSelected && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium ml-1">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Активна
                       </span>
@@ -210,7 +259,7 @@ export const Greenhouses: React.FC = () => {
                 </div>
 
                 {/* Якщо адмін - показуємо закріпленого клієнта */}
-                {isAdmin && gh.ownerEmail && (
+                {isAdmin && (gh.ownerEmail || gh.ownerUsername) && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 mt-3 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/10">
                     <UserIcon className="w-3.5 h-3.5" />
                     <span>Клієнт: {gh.ownerUsername || gh.ownerEmail}</span>
@@ -410,6 +459,49 @@ export const Greenhouses: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модальне вікно підтвердження видалення теплиці */}
+      {isAdmin && isDeleteModalOpen && deletingGreenhouse && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-100">Підтвердження демонтажу</h3>
+                <p className="text-xs text-slate-400">Видалення об'єкта та датчиків</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Ви впевнені, що хочете видалити теплицю <strong className="text-rose-400">{deletingGreenhouse.name}</strong>? Усі пов'язані телеметричні дані та пороги тривог також будуть стерті.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDeletingGreenhouse(null);
+                }}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
+              >
+                {isSubmitting ? 'Видалення...' : 'Так, видалити'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -192,10 +192,23 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteGreenhouse(Guid id, CancellationToken ct)
     {
-        var greenhouse = await dbContext.Greenhouses.FirstOrDefaultAsync(g => g.Id == id, ct);
+        var greenhouse = await dbContext.Greenhouses
+            .Include(g => g.SensorReadings)
+            .FirstOrDefaultAsync(g => g.Id == id, ct);
+
         if (greenhouse == null)
             return NotFound(new { message = "Теплицю не знайдено." });
 
+        // Очищаємо зв'язані пороги та сповіщення, якщо вони є в контексті
+        var thresholds = await dbContext.Thresholds.Where(t => t.GreenhouseId == id).ToListAsync(ct);
+        if (thresholds.Count > 0)
+            dbContext.Thresholds.RemoveRange(thresholds);
+
+        var alerts = await dbContext.Alerts.Where(a => a.GreenhouseId == id).ToListAsync(ct);
+        if (alerts.Count > 0)
+            dbContext.Alerts.RemoveRange(alerts);
+
+        // Видаляємо саму теплицю (разом із SensorReadings через навігаційну властивість)
         dbContext.Greenhouses.Remove(greenhouse);
         await dbContext.SaveChangesAsync(ct);
 
