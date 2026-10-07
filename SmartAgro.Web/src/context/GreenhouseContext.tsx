@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Greenhouse } from '../types/greenhouse';
 import { useAuth } from './AuthContext';
+import { apiClient } from '../api/client';
 
 interface GreenhouseContextType {
   greenhouses: Greenhouse[];
@@ -11,9 +12,7 @@ interface GreenhouseContextType {
 }
 
 const GreenhouseContext = createContext<GreenhouseContextType | undefined>(undefined);
-
 const STORAGE_KEY = 'smartagro_selected_greenhouse_id';
-const API_BASE_URL = 'http://localhost:5000/api'; // або URL вашого API бекенду
 
 export const GreenhouseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
@@ -30,24 +29,14 @@ export const GreenhouseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       setIsLoading(true);
-      const endpoint = user?.role === 'Admin' ? '/greenhouses/all' : '/greenhouses/my';
-      const token = localStorage.getItem('smartagro_access_token');
+      const endpoint = user?.role === 'Admin' ? '/Greenhouses/all' : '/Greenhouses/my';
+      
+      const response = await apiClient.get<Greenhouse[]>(endpoint);
+      const data = response.data || [];
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      setGreenhouses(data);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: Greenhouse[] = await response.json();
-      setGreenhouses(data || []);
-
-      if (data && data.length > 0) {
+      if (data.length > 0) {
         const savedId = localStorage.getItem(STORAGE_KEY);
         const matched = data.find((g: Greenhouse) => g.id === savedId);
         const current = matched || data[0];
