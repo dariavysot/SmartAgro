@@ -1,8 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useGreenhouse } from '../context/GreenhouseContext';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
-import { Warehouse, Plus, MapPin, CheckCircle2, AlertCircle, User as UserIcon, Pencil, Trash2 } from 'lucide-react';
+import {
+  Warehouse,
+  Plus,
+  MapPin,
+  CheckCircle2,
+  AlertCircle,
+  User as UserIcon,
+  Pencil,
+  Trash2,
+  Search,
+  Check
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface RoleObject {
@@ -21,7 +32,7 @@ export const Greenhouses: React.FC = () => {
   const { greenhouses, selectedGreenhouse, setSelectedGreenhouseId, refreshGreenhouses } = useGreenhouse();
   const { user } = useAuth();
 
-  // Безпечне визначення ролі адміністратора (рядок або вкладений об'єкт)
+  // Безпечне визначення ролі адміністратора
   const userRoleName =
     typeof user?.role === 'object' && user?.role !== null
       ? (user.role as RoleObject).name
@@ -33,6 +44,7 @@ export const Greenhouses: React.FC = () => {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [searchUserQuery, setSearchUserQuery] = useState('');
 
   // Стан для редагування
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -40,6 +52,7 @@ export const Greenhouses: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editUserId, setEditUserId] = useState('');
+  const [editSearchUserQuery, setEditSearchUserQuery] = useState('');
 
   // Стан для видалення
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -65,6 +78,40 @@ export const Greenhouses: React.FC = () => {
     }
   }, [isAdmin]);
 
+  // Фільтрація клієнтів за ім'ям або поштою при створенні
+  const filteredUsers = useMemo(() => {
+    const q = searchUserQuery.toLowerCase().trim();
+    if (!q) return usersList;
+    return usersList.filter(
+      (u) =>
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+    );
+  }, [usersList, searchUserQuery]);
+
+  // Фільтрація клієнтів при редагуванні
+  const editFilteredUsers = useMemo(() => {
+    const q = editSearchUserQuery.toLowerCase().trim();
+    if (!q) return usersList;
+    return usersList.filter(
+      (u) =>
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+    );
+  }, [usersList, editSearchUserQuery]);
+
+  // Відкриття форми створення
+  const openCreateModal = () => {
+    setError(null);
+    setName('');
+    setLocation('');
+    setSearchUserQuery('');
+    if (usersList.length > 0) {
+      setSelectedUserId(usersList[0].id);
+    }
+    setIsModalOpen(true);
+  };
+
   // Відкриття форми редагування
   const openEditModal = (gh: any, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -72,6 +119,7 @@ export const Greenhouses: React.FC = () => {
     setEditName(gh.name || '');
     setEditLocation(gh.location || '');
     setEditUserId(gh.ownerId || gh.userId || (usersList.length > 0 ? usersList[0].id : ''));
+    setEditSearchUserQuery('');
     setError(null);
     setIsEditModalOpen(true);
   };
@@ -152,8 +200,7 @@ export const Greenhouses: React.FC = () => {
       await apiClient.delete(`/Greenhouses/${deletingGreenhouse.id}`);
 
       toast.success(`Теплицю "${deletingGreenhouse.name}" успішно демонтовано та видалено!`);
-      
-      // Якщо видаляємо поточну обрану теплицю — скидаємо або перемикаємо вибір
+
       if (selectedGreenhouse?.id === deletingGreenhouse.id) {
         const remaining = greenhouses.filter((g: any) => g.id !== deletingGreenhouse.id);
         if (remaining.length > 0) {
@@ -191,10 +238,7 @@ export const Greenhouses: React.FC = () => {
         {/* Кнопка створення доступна тільки адміну */}
         {isAdmin && (
           <button
-            onClick={() => {
-              setError(null);
-              setIsModalOpen(true);
-            }}
+            onClick={openCreateModal}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -221,9 +265,8 @@ export const Greenhouses: React.FC = () => {
                   <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
                     <Warehouse className="w-5 h-5" />
                   </div>
-                  
+
                   <div className="flex items-center gap-1.5">
-                    {/* Кнопки адміністрування: Редагувати та Видалити */}
                     {isAdmin && (
                       <>
                         <button
@@ -258,7 +301,6 @@ export const Greenhouses: React.FC = () => {
                   <span>{gh.location || 'Локація не вказана'}</span>
                 </div>
 
-                {/* Якщо адмін - показуємо закріпленого клієнта */}
                 {isAdmin && (gh.ownerEmail || gh.ownerUsername) && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 mt-3 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/10">
                     <UserIcon className="w-3.5 h-3.5" />
@@ -283,7 +325,7 @@ export const Greenhouses: React.FC = () => {
         })}
       </div>
 
-      {/* Модальне вікно створення нової теплиці */}
+      {/* Модальне вікно створення нової теплиці з живим пошуком клієнта */}
       {isAdmin && isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
@@ -305,26 +347,58 @@ export const Greenhouses: React.FC = () => {
             )}
 
             <form onSubmit={handleCreate} className="space-y-4">
+              {/* Пошук та вибір клієнта */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Клієнт / Власник теплиці
                 </label>
+
                 {usersList.length === 0 ? (
                   <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
                     Немає доступних зареєстрованих клієнтів для прив'язки.
                   </p>
                 ) : (
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                  >
-                    {usersList.map((u) => (
-                      <option key={u.id} value={u.id} className="bg-slate-900">
-                        {u.username} ({u.email})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Поле пошуку за ім'ям або email */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="text"
+                        value={searchUserQuery}
+                        onChange={(e) => setSearchUserQuery(e.target.value)}
+                        placeholder="Пошук за ім'ям або email..."
+                        className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                      />
+                    </div>
+
+                    {/* Інтерактивний список для швидкого вибору */}
+                    <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-800/80 rounded-xl p-1.5 bg-slate-950/40">
+                      {filteredUsers.length === 0 ? (
+                        <p className="text-xs text-slate-500 text-center py-3">Клієнтів не знайдено</p>
+                      ) : (
+                        filteredUsers.map((u) => {
+                          const isChosen = selectedUserId === u.id;
+                          return (
+                            <div
+                              key={u.id}
+                              onClick={() => setSelectedUserId(u.id)}
+                              className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all ${
+                                isChosen
+                                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                                  : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
+                              }`}
+                            >
+                              <div className="truncate mr-2">
+                                <span className="font-medium text-slate-200">{u.username}</span>
+                                <span className="text-[11px] text-slate-500 ml-1.5">({u.email})</span>
+                              </div>
+                              {isChosen && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -365,7 +439,7 @@ export const Greenhouses: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || usersList.length === 0}
+                  disabled={isSubmitting || usersList.length === 0 || !selectedUserId}
                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                 >
                   {isSubmitting ? 'Збереження...' : 'Зареєструвати об’єкт'}
@@ -376,7 +450,7 @@ export const Greenhouses: React.FC = () => {
         </div>
       )}
 
-      {/* Модальне вікно редагування теплиці */}
+      {/* Модальне вікно редагування теплиці з живим пошуком */}
       {isAdmin && isEditModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
@@ -402,17 +476,46 @@ export const Greenhouses: React.FC = () => {
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Клієнт / Власник теплиці
                 </label>
-                <select
-                  value={editUserId}
-                  onChange={(e) => setEditUserId(e.target.value)}
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                >
-                  {usersList.map((u) => (
-                    <option key={u.id} value={u.id} className="bg-slate-900">
-                      {u.username} ({u.email})
-                    </option>
-                  ))}
-                </select>
+
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      value={editSearchUserQuery}
+                      onChange={(e) => setEditSearchUserQuery(e.target.value)}
+                      placeholder="Пошук за ім'ям або email..."
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-800/80 rounded-xl p-1.5 bg-slate-950/40">
+                    {editFilteredUsers.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-3">Клієнтів не знайдено</p>
+                    ) : (
+                      editFilteredUsers.map((u) => {
+                        const isChosen = editUserId === u.id;
+                        return (
+                          <div
+                            key={u.id}
+                            onClick={() => setEditUserId(u.id)}
+                            className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all ${
+                              isChosen
+                                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                                : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="truncate mr-2">
+                              <span className="font-medium text-slate-200">{u.username}</span>
+                              <span className="text-[11px] text-slate-500 ml-1.5">({u.email})</span>
+                            </div>
+                            {isChosen && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -452,7 +555,7 @@ export const Greenhouses: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !editUserId}
                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                 >
                   {isSubmitting ? 'Збереження...' : 'Зберегти зміни'}
