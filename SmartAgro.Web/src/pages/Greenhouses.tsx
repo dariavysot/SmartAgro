@@ -36,7 +36,7 @@ export const Greenhouses: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Завантаження списку зареєстрованих користувачів для призначення (тільки для Admin)
+  // Завантаження списку клієнтів (тільки для Admin)
   useEffect(() => {
     if (isAdmin) {
       apiClient.get<UserOption[]>('/Greenhouses/users-list')
@@ -83,23 +83,6 @@ export const Greenhouses: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const getRoleDisplayName = (role?: any): string => {
-    if (!role) return 'Користувач';
-
-    // Якщо роль прийшла як об'єкт { id, name, ... }
-    if (typeof role === 'object') {
-      if (role.name) return role.name;
-      if (role.id === 1 || role.id === '1') return 'Admin';
-      return 'User';
-    }
-
-    // Якщо роль прийшла як число або числовий рядок ID (наприклад 1)
-    if (role === 1 || role === '1') return 'Admin';
-    if (role === 2 || role === '2') return 'User';
-
-    return String(role);
   };
 
   return (
@@ -213,17 +196,23 @@ export const Greenhouses: React.FC = () => {
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Клієнт / Власник теплиці
                 </label>
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                >
-                  {usersList.map((u) => (
-                    <option key={u.id} value={u.id} className="bg-slate-900">
-                      {u.username} ({u.email}) — [{getRoleDisplayName(u.role)}]
-                    </option>
-                  ))}
-                </select>
+                {usersList.length === 0 ? (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                    Немає доступних зареєстрованих клієнтів для прив'язки.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                  >
+                    {usersList.map((u) => (
+                      <option key={u.id} value={u.id} className="bg-slate-900">
+                        {u.username} ({u.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -263,7 +252,7 @@ export const Greenhouses: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || usersList.length === 0}
                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                 >
                   {isSubmitting ? 'Збереження...' : 'Зареєструвати об’єкт'}

@@ -79,12 +79,13 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     {
         var users = await dbContext.Users
             .AsNoTracking()
+            .Where(u => u.Role != null && u.Role.Name != UserRole.Admin) // Звертаємось до u.Role.Name
             .Select(u => new
             {
                 u.Id,
                 u.Username,
                 u.Email,
-                u.Role
+                Role = u.Role != null ? u.Role.Name.ToString() : "User"
             })
             .ToListAsync(ct);
 
@@ -98,8 +99,11 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateGreenhouse([FromBody] CreateGreenhouseDto dto, CancellationToken ct)
     {
-        var targetUserExists = await dbContext.Users.AnyAsync(u => u.Id == dto.UserId, ct);
-        if (!targetUserExists)
+        var targetUser = await dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == dto.UserId, ct);
+
+        if (targetUser == null)
         {
             return BadRequest(new { message = "Вказаного користувача не знайдено в системі." });
         }
@@ -128,7 +132,16 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 
         await dbContext.SaveChangesAsync(ct);
 
-        return Ok(greenhouse);
+        // Повертаємо чистий об'єкт без циклічних зв'язків
+        return Ok(new
+        {
+            greenhouse.Id,
+            greenhouse.Name,
+            greenhouse.Location,
+            greenhouse.UserId,
+            OwnerUsername = targetUser.Username,
+            OwnerEmail = targetUser.Email
+        });
     }
 
     /// <summary>
