@@ -15,6 +15,7 @@ import { TelemetryChart, type ChartPoint } from './components/dashboard/Telemetr
 import { DiseaseRiskWidget } from './components/dashboard/DiseaseRiskWidget';
 import { AlertsPanel, type AlertItem } from './components/dashboard/AlertsPanel';
 import { useTelemetryHub } from './hooks/useTelemetryHub';
+import { apiClient } from './api/client';
 import type { MetricStatus } from './types/telemetry';
 import {
   Thermometer,
@@ -29,29 +30,106 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
+interface TelemetryRecord {
+  id: string;
+  greenhouseId: string;
+  temperature: number;
+  humidity: number;
+  co2Level: number;
+  diseaseRiskScore: number;
+  soilMoisture?: number;
+  signature?: string;
+  timestamp: string;
+}
+
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { logout, user } = useAuth();
   const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
-  const { telemetry, isConnected } = useTelemetryHub();
+  const { telemetry: liveTelemetry, isConnected } = useTelemetryHub();
 
   const [history, setHistory] = useState<ChartPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  // Стан для останнього зрізу даних (ініціалізується з БД, далі оновлюється живим SignalR)
+  const [currentSnapshot, setCurrentSnapshot] = useState<TelemetryRecord | null>(null);
 
-  // Очищення графіка при перемиканні теплиці
+  // 1. «Холодний старт»: завантаження останнього зрізу та історії з БД при виборі теплиці
   useEffect(() => {
-    setHistory([]);
-  }, [selectedGreenhouse?.id]);
-
-  useEffect(() => {
-    if (!telemetry) return;
-
-    // Фільтруємо телеметрію лише для обраної теплиці
-    if (selectedGreenhouse && telemetry.greenhouseId && telemetry.greenhouseId !== selectedGreenhouse.id) {
+    if (!selectedGreenhouse?.id) {
+      setHistory([]);
+      setCurrentSnapshot(null);
       return;
     }
 
-    const timeLabel = new Date(telemetry.timestamp || Date.now()).toLocaleTimeString([], {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      try {
+        // Отримуємо останній зріз та історію паралельно
+        const [latestRes, historyRes] = await Promise.allSettled([
+          apiClient.get<TelemetryRecord>(`/Telemetry/latest/${selectedGreenhouse.id}`),
+          apiClient.get<TelemetryRecord[]>(`/Telemetry/history/${selectedGreenhouse.id}?limit=20`),
+        ]);
+
+        if (!isMounted) return;
+
+        if (latestRes.status === 'fulfilled' && latestRes.value.data) {
+          setCurrentSnapshot(latestRes.value.data);
+        } else {
+          setCurrentSnapshot(null);
+        }
+
+        if (historyRes.status === 'fulfilled' && Array.isArray(historyRes.value.data)) {
+          // Розгортаємо у хронологічний порядок для графіку
+          const points: ChartPoint[] = [...historyRes.value.data].reverse().map((item) => ({
+            time: new Date(item.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            }),
+            temperature: item.temperature,
+            humidity: item.humidity,
+            co2: item.co2Level,
+          }));
+          setHistory(points);
+        } else {
+          setHistory([]);
+        }
+      } catch (err) {
+        console.error('Не вдалося завантажити початкову телеметрію:', err);
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedGreenhouse?.id]);
+
+  // 2. Обробка живого потоку SignalR
+  useEffect(() => {
+    if (!liveTelemetry) return;
+
+    // Фільтруємо телеметрію лише для обраної теплиці
+    if (selectedGreenhouse && liveTelemetry.greenhouseId && liveTelemetry.greenhouseId !== selectedGreenhouse.id) {
+      return;
+    }
+
+    // Оновлюємо поточний зріз живими даними
+    setCurrentSnapshot({
+      id: liveTelemetry.id || '',
+      greenhouseId: liveTelemetry.greenhouseId,
+      temperature: liveTelemetry.temperature,
+      humidity: liveTelemetry.humidity,
+      co2Level: liveTelemetry.co2Level,
+      diseaseRiskScore: liveTelemetry.diseaseRiskScore,
+      soilMoisture: liveTelemetry.soilMoisture ?? 60.0,
+      signature: liveTelemetry.signature,
+      timestamp: liveTelemetry.timestamp || new Date().toISOString(),
+    });
+
+    const timeLabel = new Date(liveTelemetry.timestamp || Date.now()).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
@@ -62,9 +140,9 @@ function DashboardLayout() {
         ...prev,
         {
           time: timeLabel,
-          temperature: telemetry.temperature,
-          humidity: telemetry.humidity,
-          co2: telemetry.co2Level,
+          temperature: liveTelemetry.temperature,
+          humidity: liveTelemetry.humidity,
+          co2: liveTelemetry.co2Level,
         },
       ];
       return updated.slice(-20);
@@ -72,32 +150,32 @@ function DashboardLayout() {
 
     const greenhouseLabel = selectedGreenhouse?.name || 'теплиці';
 
-    if (telemetry.temperature > 35) {
+    if (liveTelemetry.temperature > 35) {
       const alertId = `temp-${Date.now()}`;
-      toast.error(`Критичний перегрів: ${telemetry.temperature}°C!`, { id: alertId });
+      toast.error(`Критичний перегрів: ${liveTelemetry.temperature}°C!`, { id: alertId });
       setAlerts((prev) => [
         {
           id: alertId,
-          message: `Перегрів (${greenhouseLabel}): ${telemetry.temperature}°C`,
+          message: `Перегрів (${greenhouseLabel}): ${liveTelemetry.temperature}°C`,
           type: 'Critical',
           timestamp: timeLabel,
         },
         ...prev.slice(0, 4),
       ]);
-    } else if (telemetry.co2Level > 1300) {
+    } else if (liveTelemetry.co2Level > 1300) {
       const alertId = `co2-${Date.now()}`;
-      toast.error(`Висока концентрація CO₂: ${telemetry.co2Level} ppm!`, { id: alertId });
+      toast.error(`Висока концентрація CO₂: ${liveTelemetry.co2Level} ppm!`, { id: alertId });
       setAlerts((prev) => [
         {
           id: alertId,
-          message: `Критичний рівень CO₂ (${greenhouseLabel}): ${telemetry.co2Level} ppm`,
+          message: `Критичний рівень CO₂ (${greenhouseLabel}): ${liveTelemetry.co2Level} ppm`,
           type: 'Critical',
           timestamp: timeLabel,
         },
         ...prev.slice(0, 4),
       ]);
     }
-  }, [telemetry, selectedGreenhouse]);
+  }, [liveTelemetry, selectedGreenhouse]);
 
   const handleDismissAlert = (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
@@ -132,15 +210,11 @@ function DashboardLayout() {
     return { status: 'normal', text: 'Норма' };
   };
 
-  // Показуємо дані лише якщо вони прийшли від обраної теплиці
-  const isCurrentGreenhouseTelemetry =
-    Boolean(telemetry && selectedGreenhouse && telemetry.greenhouseId === selectedGreenhouse.id);
-
-  const currentTemp = isCurrentGreenhouseTelemetry ? telemetry?.temperature : undefined;
-  const currentHumidity = isCurrentGreenhouseTelemetry ? telemetry?.humidity : undefined;
-  const currentCo2 = isCurrentGreenhouseTelemetry ? telemetry?.co2Level : undefined;
-  const currentSoil = isCurrentGreenhouseTelemetry ? telemetry?.soilMoisture : undefined;
-  const currentRisk = isCurrentGreenhouseTelemetry ? telemetry?.diseaseRiskScore : undefined;
+  const currentTemp = currentSnapshot?.temperature;
+  const currentHumidity = currentSnapshot?.humidity;
+  const currentCo2 = currentSnapshot?.co2Level;
+  const currentSoil = currentSnapshot?.soilMoisture ?? (currentSnapshot ? 62.0 : undefined);
+  const currentRisk = currentSnapshot?.diseaseRiskScore;
 
   const tempStatus = getTempStatus(currentTemp);
   const humStatus = getHumidityStatus(currentHumidity);
@@ -160,7 +234,6 @@ function DashboardLayout() {
           ) : activeTab === 'greenhouses' ? (
             <Greenhouses />
           ) : !isLoading && greenhouses.length === 0 ? (
-            /* Empty State: Коли у користувача взагалі немає теплиць */
             <div className="max-w-2xl mx-auto mt-16 p-8 bg-slate-900/60 border border-slate-800 rounded-3xl text-center space-y-4">
               <div className="w-14 h-14 mx-auto bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
                 <Warehouse className="w-7 h-7" />
@@ -270,8 +343,8 @@ function DashboardLayout() {
                     <div>
                       <p className="text-xs text-slate-400">Останній пакет</p>
                       <p className="text-sm font-semibold text-blue-400">
-                        {isCurrentGreenhouseTelemetry && telemetry?.timestamp
-                          ? new Date(telemetry.timestamp).toLocaleTimeString()
+                        {currentSnapshot?.timestamp
+                          ? new Date(currentSnapshot.timestamp).toLocaleTimeString()
                           : 'Очікування даних...'}
                       </p>
                     </div>
@@ -284,8 +357,8 @@ function DashboardLayout() {
                     <div>
                       <p className="text-xs text-slate-400">Криптографічний підпис</p>
                       <p className="text-sm font-semibold text-amber-400 truncate max-w-[180px]">
-                        {isCurrentGreenhouseTelemetry && telemetry?.signature
-                          ? `${telemetry.signature.slice(0, 16)}...`
+                        {currentSnapshot?.signature
+                          ? `${currentSnapshot.signature.slice(0, 16)}...`
                           : 'AES/HMAC Verified'}
                       </p>
                     </div>
