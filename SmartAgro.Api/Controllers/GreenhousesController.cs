@@ -147,6 +147,9 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     /// <summary>
     /// Оновити параметри теплиці (Тільки для Admin)
     /// </summary>
+    /// <summary>
+    /// Оновити параметри теплиці та за потреби змінити власника (Тільки для Admin)
+    /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateGreenhouse(Guid id, [FromBody] UpdateGreenhouseDto dto, CancellationToken ct)
@@ -155,11 +158,31 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
         if (greenhouse == null)
             return NotFound(new { message = "Теплицю не знайдено." });
 
-        greenhouse.Name = dto.Name;
-        greenhouse.Location = dto.Location;
+        if (!string.IsNullOrWhiteSpace(dto.Name))
+            greenhouse.Name = dto.Name.Trim();
+
+        if (!string.IsNullOrWhiteSpace(dto.Location))
+            greenhouse.Location = dto.Location.Trim();
+
+        // Якщо передано нового власника і він відрізняється від поточного
+        if (dto.UserId.HasValue && dto.UserId.Value != Guid.Empty && dto.UserId.Value != greenhouse.UserId)
+        {
+            var userExists = await dbContext.Users.AnyAsync(u => u.Id == dto.UserId.Value, ct);
+            if (!userExists)
+                return BadRequest(new { message = "Вказаного користувача не існує." });
+
+            greenhouse.UserId = dto.UserId.Value;
+        }
 
         await dbContext.SaveChangesAsync(ct);
-        return Ok(greenhouse);
+
+        return Ok(new
+        {
+            greenhouse.Id,
+            greenhouse.Name,
+            greenhouse.Location,
+            greenhouse.UserId
+        });
     }
 
     /// <summary>
@@ -169,10 +192,23 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteGreenhouse(Guid id, CancellationToken ct)
     {
-        var greenhouse = await dbContext.Greenhouses.FirstOrDefaultAsync(g => g.Id == id, ct);
+        var greenhouse = await dbContext.Greenhouses
+            .Include(g => g.SensorReadings)
+            .FirstOrDefaultAsync(g => g.Id == id, ct);
+
         if (greenhouse == null)
             return NotFound(new { message = "Теплицю не знайдено." });
 
+        // Очищаємо зв'язані пороги та сповіщення, якщо вони є в контексті
+        var thresholds = await dbContext.Thresholds.Where(t => t.GreenhouseId == id).ToListAsync(ct);
+        if (thresholds.Count > 0)
+            dbContext.Thresholds.RemoveRange(thresholds);
+
+        var alerts = await dbContext.Alerts.Where(a => a.GreenhouseId == id).ToListAsync(ct);
+        if (alerts.Count > 0)
+            dbContext.Alerts.RemoveRange(alerts);
+
+        // Видаляємо саму теплицю (разом із SensorReadings через навігаційну властивість)
         dbContext.Greenhouses.Remove(greenhouse);
         await dbContext.SaveChangesAsync(ct);
 
