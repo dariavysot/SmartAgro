@@ -27,6 +27,7 @@ import {
   Cpu,
   Warehouse,
   Plus,
+  LogOut,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -50,10 +51,9 @@ function DashboardLayout() {
 
   const [history, setHistory] = useState<ChartPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  // Стан для останнього зрізу даних (ініціалізується з БД, далі оновлюється живим SignalR)
   const [currentSnapshot, setCurrentSnapshot] = useState<TelemetryRecord | null>(null);
 
-  // 1. «Холодний старт»: завантаження останнього зрізу та історії з БД при виборі теплиці
+  // 1. Завантаження останнього зрізу та історії з БД при виборі теплиці
   useEffect(() => {
     if (!selectedGreenhouse?.id) {
       setHistory([]);
@@ -65,7 +65,6 @@ function DashboardLayout() {
 
     const loadInitialData = async () => {
       try {
-        // Отримуємо останній зріз та історію паралельно
         const [latestRes, historyRes] = await Promise.allSettled([
           apiClient.get<TelemetryRecord>(`/Telemetry/latest/${selectedGreenhouse.id}`),
           apiClient.get<TelemetryRecord[]>(`/Telemetry/history/${selectedGreenhouse.id}?limit=20`),
@@ -80,7 +79,6 @@ function DashboardLayout() {
         }
 
         if (historyRes.status === 'fulfilled' && Array.isArray(historyRes.value.data)) {
-          // Розгортаємо у хронологічний порядок для графіку
           const points: ChartPoint[] = [...historyRes.value.data].reverse().map((item) => ({
             time: new Date(item.timestamp).toLocaleTimeString([], {
               hour: '2-digit',
@@ -111,12 +109,10 @@ function DashboardLayout() {
   useEffect(() => {
     if (!liveTelemetry) return;
 
-    // Фільтруємо телеметрію лише для обраної теплиці
     if (selectedGreenhouse && liveTelemetry.greenhouseId && liveTelemetry.greenhouseId !== selectedGreenhouse.id) {
       return;
     }
 
-    // Оновлюємо поточний зріз живими даними
     setCurrentSnapshot({
       id: liveTelemetry.id || '',
       greenhouseId: liveTelemetry.greenhouseId,
@@ -226,7 +222,30 @@ function DashboardLayout() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Navbar isStreaming={isConnected} />
+        {/* Постійна верхня панель: містить статус стрімінгу, інформацію про поточного користувача та фіксовану кнопку виходу */}
+        <header className="flex items-center justify-between px-6 py-3 bg-slate-900/80 border-b border-slate-800 backdrop-blur-sm z-10">
+          <Navbar isStreaming={isConnected} />
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex flex-col text-right">
+              <span className="text-xs font-medium text-slate-200">
+                {user?.username || user?.email}
+              </span>
+              <span className="text-[10px] text-slate-400">
+                {user?.role === 'Admin' ? 'Адміністратор' : 'Користувач'}
+              </span>
+            </div>
+
+            <button
+              onClick={logout}
+              title="Вийти з облікового запису"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Вийти</span>
+            </button>
+          </div>
+        </header>
 
         <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
           {activeTab === 'thresholds' ? (
@@ -254,21 +273,13 @@ function DashboardLayout() {
             </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-100">
-                    {selectedGreenhouse?.name || 'Завантаження об’єкта...'}
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Локація: {selectedGreenhouse?.location || 'Не вказана'} • Користувач: {user?.username || user?.email} ({user?.role === 'Admin' ? 'Адміністратор' : 'Користувач'})
-                  </p>
-                </div>
-                <button
-                  onClick={logout}
-                  className="px-3.5 py-1.5 text-xs text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
-                >
-                  Вийти
-                </button>
+              <div>
+                <h2 className="text-xl font-bold text-slate-100">
+                  {selectedGreenhouse?.name || 'Завантаження об’єкта...'}
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Локація: {selectedGreenhouse?.location || 'Не вказана'}
+                </p>
               </div>
 
               {/* Метричні картки */}
