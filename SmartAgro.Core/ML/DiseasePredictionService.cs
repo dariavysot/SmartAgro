@@ -9,12 +9,10 @@ public sealed class DiseasePredictionService : IDiseasePredictionService, IDispo
 
     public DiseasePredictionService()
     {
-        // Шукаємо файл моделі у вихідній директорії білда застосунку
         var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "greenhouse_risk.onnx");
 
         if (!File.Exists(modelPath))
         {
-            // Резервний пошук, якщо запущено з іншого робочого каталогу
             modelPath = Path.Combine(Directory.GetCurrentDirectory(), "greenhouse_risk.onnx");
         }
 
@@ -29,6 +27,13 @@ public sealed class DiseasePredictionService : IDiseasePredictionService, IDispo
 
     public float PredictDiseaseRisk(double temperature, double humidity, double co2, double soilMoisture)
     {
+        // Викликаємо повний розрахунок і повертаємо перший елемент (базова формула грибка)
+        var assessment = PredictMultiFactorRisk(temperature, humidity, co2, soilMoisture);
+        return assessment.FungalDiseaseRisk;
+    }
+
+    public DiseaseRiskAssessment PredictMultiFactorRisk(double temperature, double humidity, double co2, double soilMoisture)
+    {
         // 1. Формуємо одновимірний масив ознак [1, 4]
         var inputValues = new float[]
         {
@@ -38,25 +43,34 @@ public sealed class DiseasePredictionService : IDiseasePredictionService, IDispo
             (float)soilMoisture
         };
 
-        // 2. Створюємо тензор для ONNX Runtime
         var dimensions = new int[] { 1, 4 };
         var tensor = new DenseTensor<float>(inputValues, dimensions);
 
-        // 3. Підготовка вхідного параметра з ім'ям 'float_input' (як задано в skl2onnx)
         var inputs = new List<NamedOnnxValue>
         {
             NamedOnnxValue.CreateFromTensor("float_input", tensor)
         };
 
-        // 4. Виконання інференсу моделі
+        // 2. Інференс ONNX моделі
         using var results = _session.Run(inputs);
 
-        // 5. Отримання результату передбачення
+        // 3. Зчитуємо вихідний вектор розмірністю [1, 4]
         var outputTensor = results.First().AsTensor<float>();
-        float predictedRisk = outputTensor.First();
+        var outputValues = outputTensor.ToArray();
 
-        // Обмежуємо діапазон значеннями від 0.0 до 100.0%
-        return Math.Clamp(predictedRisk, 0.0f, 100.0f);
+        // Індекси відповідають колонкам у train_multi_risk_model.py
+        float fungalRisk = Math.Clamp(outputValues.Length > 0 ? outputValues[0] : 0.0f, 0.0f, 100.0f);
+        float vpdRisk = Math.Clamp(outputValues.Length > 1 ? outputValues[1] : 0.0f, 0.0f, 100.0f);
+        float co2Risk = Math.Clamp(outputValues.Length > 2 ? outputValues[2] : 0.0f, 0.0f, 100.0f);
+        float hypoxiaRisk = Math.Clamp(outputValues.Length > 3 ? outputValues[3] : 0.0f, 0.0f, 100.0f);
+
+        return new DiseaseRiskAssessment
+        {
+            FungalDiseaseRisk = MathF.Round(fungalRisk, 2),
+            VpdStressRisk = MathF.Round(vpdRisk, 2),
+            Co2InefficiencyRisk = MathF.Round(co2Risk, 2),
+            RootHypoxiaRisk = MathF.Round(hypoxiaRisk, 2)
+        };
     }
 
     public void Dispose()

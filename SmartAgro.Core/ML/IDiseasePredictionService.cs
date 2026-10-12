@@ -3,12 +3,13 @@
 public interface IDiseasePredictionService
 {
     /// <summary>
-    /// Обчислює ризик розвитку захворювань (фітофтороз/борошниста роса) у відсотках (0–100%).
+    /// Обчислює базовий ризик розвитку захворювань у відсотках (0–100%).
+    /// Зберігається для зворотної сумісності з існуючим кодом.
     /// </summary>
-    /// <param name="temperature">Температура повітря (°C)</param>
-    /// <param name="humidity">Відносна вологість повітря (%)</param>
-    /// <param name="co2">Концентрація CO2 (ppm)</param>
-    /// <param name="soilMoisture">Вологість ґрунту (%)</param>
-    /// <returns>Оцінка ризику від 0.0 до 100.0</returns>
     float PredictDiseaseRisk(double temperature, double humidity, double co2, double soilMoisture);
+
+    /// <summary>
+    /// Виконує деталізовану оцінку 4 факторів ризику (грибок, VPD, CO2, гіпоксія).
+    /// </summary>
+    DiseaseRiskAssessment PredictMultiFactorRisk(double temperature, double humidity, double co2, double soilMoisture);
 }

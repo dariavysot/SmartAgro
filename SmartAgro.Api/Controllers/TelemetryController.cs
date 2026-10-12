@@ -99,4 +99,31 @@ public sealed class TelemetryController(
             return BadRequest(new { error = "Помилка автентичності даних: недійсний цифровий підпис HMAC." });
         }
     }
+
+    /// <summary>
+    /// Отримує розширений багатофакторний ML-прогноз ризиків для останніх даних теплиці.
+    /// </summary>
+    [HttpGet("risk-breakdown/{greenhouseId:guid}")]
+    public async Task<IActionResult> GetDetailedRiskBreakdown(Guid greenhouseId, CancellationToken ct)
+    {
+        var latest = await dbContext.SensorData
+            .AsNoTracking()
+            .Where(s => s.GreenhouseId == greenhouseId)
+            .OrderByDescending(s => s.Timestamp)
+            .FirstOrDefaultAsync(ct);
+
+        if (latest == null)
+        {
+            return NotFound(new { message = "Дані для аналізу відсутні." });
+        }
+
+        var assessment = mlService.PredictMultiFactorRisk(
+            latest.Temperature,
+            latest.Humidity,
+            latest.Co2Level,
+            60.0 // або значення вологості ґрунту з сенсора
+        );
+
+        return Ok(assessment);
+    }
 }
