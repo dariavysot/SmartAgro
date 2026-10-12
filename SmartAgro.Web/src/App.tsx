@@ -10,6 +10,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Thresholds } from './pages/Thresholds';
 import { Greenhouses } from './pages/Greenhouses';
+import { Alerts } from './pages/Alerts';
 import { MetricCard } from './components/dashboard/MetricCard';
 import { TelemetryChart, type ChartPoint } from './components/dashboard/TelemetryChart';
 import { DiseaseRiskWidget } from './components/dashboard/DiseaseRiskWidget';
@@ -53,7 +54,7 @@ function DashboardLayout() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [currentSnapshot, setCurrentSnapshot] = useState<TelemetryRecord | null>(null);
 
-  // 1. Завантаження останнього зрізу та історії з БД при виборі теплиці
+  // 1. Завантаження останнього зрізу та історії з БД при зміні обраної теплиці
   useEffect(() => {
     if (!selectedGreenhouse?.id) {
       setHistory([]);
@@ -222,10 +223,10 @@ function DashboardLayout() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Постійна верхня панель: містить статус стрімінгу, інформацію про поточного користувача та фіксовану кнопку виходу */}
+        {/* Верхня панель із навігацією та кнопкою виходу */}
         <header className="flex items-center justify-between px-6 py-3 bg-slate-900/80 border-b border-slate-800 backdrop-blur-sm z-10">
           <Navbar isStreaming={isConnected} />
-          
+
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-xs font-medium text-slate-200">
@@ -247,11 +248,14 @@ function DashboardLayout() {
           </div>
         </header>
 
+        {/* Основна область контенту */}
         <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
           {activeTab === 'thresholds' ? (
             <Thresholds />
           ) : activeTab === 'greenhouses' ? (
             <Greenhouses />
+          ) : activeTab === 'alerts' ? (
+            <Alerts />
           ) : !isLoading && greenhouses.length === 0 ? (
             <div className="max-w-2xl mx-auto mt-16 p-8 bg-slate-900/60 border border-slate-800 rounded-3xl text-center space-y-4">
               <div className="w-14 h-14 mx-auto bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">

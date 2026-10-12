@@ -11,6 +11,39 @@ namespace SmartAgro.Api.Controllers;
 public sealed class AlertsController(AppDbContext dbContext) : ControllerBase
 {
     /// <summary>
+    /// Повертає повну незмінну історію тривог із назвами теплиць (для сторінки журналу).
+    /// </summary>
+    [HttpGet("history")]
+    public async Task<IActionResult> GetAllAlertsHistory([FromQuery] Guid? greenhouseId, CancellationToken ct)
+    {
+        var query = dbContext.Alerts
+            .AsNoTracking()
+            .Include(a => a.Greenhouse)
+            .AsQueryable();
+
+        if (greenhouseId.HasValue && greenhouseId.Value != Guid.Empty)
+        {
+            query = query.Where(a => a.GreenhouseId == greenhouseId.Value);
+        }
+
+        var alerts = await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Select(a => new
+            {
+                a.Id,
+                a.GreenhouseId,
+                GreenhouseName = a.Greenhouse != null ? a.Greenhouse.Name : "Невідомий сектор",
+                a.Message,
+                a.Severity,
+                a.IsResolved,
+                a.CreatedAt
+            })
+            .ToListAsync(ct);
+
+        return Ok(alerts);
+    }
+
+    /// <summary>
     /// Повертає список невирішених (активних) тривог.
     /// </summary>
     [HttpGet("active")]
@@ -18,34 +51,26 @@ public sealed class AlertsController(AppDbContext dbContext) : ControllerBase
     {
         var alerts = await dbContext.Alerts
             .AsNoTracking()
+            .Include(a => a.Greenhouse)
             .Where(a => !a.IsResolved)
             .OrderByDescending(a => a.CreatedAt)
+            .Select(a => new
+            {
+                a.Id,
+                a.GreenhouseId,
+                GreenhouseName = a.Greenhouse != null ? a.Greenhouse.Name : "Невідомий сектор",
+                a.Message,
+                a.Severity,
+                a.IsResolved,
+                a.CreatedAt
+            })
             .ToListAsync(ct);
 
         return Ok(alerts);
     }
 
     /// <summary>
-    /// Повертає історію тривог для конкретної теплиці.
-    /// </summary>
-    [HttpGet("greenhouse/{greenhouseId:guid}")]
-    public async Task<IActionResult> GetAlertsByGreenhouse(Guid greenhouseId, [FromQuery] bool? unresolvedOnly, CancellationToken ct)
-    {
-        var query = dbContext.Alerts
-            .AsNoTracking()
-            .Where(a => a.GreenhouseId == greenhouseId);
-
-        if (unresolvedOnly == true)
-        {
-            query = query.Where(a => !a.IsResolved);
-        }
-
-        var alerts = await query.OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
-        return Ok(alerts);
-    }
-
-    /// <summary>
-    /// Позначає тривогу як вирішену агрономом.
+    /// Позначає тривогу як вирішену (без видалення самого запису).
     /// </summary>
     [HttpPost("{id:long}/resolve")]
     public async Task<IActionResult> ResolveAlert(long id, CancellationToken ct)
@@ -59,6 +84,6 @@ public sealed class AlertsController(AppDbContext dbContext) : ControllerBase
         alert.IsResolved = true;
         await dbContext.SaveChangesAsync(ct);
 
-        return Ok(new { message = $"Тривогу #{id} успішно закрито.", alertId = alert.Id });
+        return Ok(new { message = $"Тривогу #{id} позначено як вирішену.", alertId = alert.Id });
     }
 }
