@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using SmartAgro.Api.Hubs;
 using SmartAgro.Api.Services;
 using SmartAgro.Core.Alerts;
@@ -14,8 +14,9 @@ using SmartAgro.Core.Simulator;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Конфігурація бази даних
+// 1. Конфігурація незалежності від СУБД (PostgreSQL / SQLite)
 var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "PostgreSql";
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
@@ -112,6 +113,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+
 builder.Services.AddEndpointsApiExplorer();
 
 // 11. Налаштування Swagger з підтримкою Bearer-токена
@@ -136,13 +138,40 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", securityScheme);
 
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
     });
 });
 
 var app = builder.Build();
+
+// 12. Автоматична перевірка та створення схеми БД для обраного провайдера
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        context.Database.EnsureCreated();
+        logger.LogInformation("Базу даних ({Provider}) успішно перевірено та ініціалізовано.", dbProvider);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Помилка під час ініціалізації бази даних ({Provider})", dbProvider);
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -150,7 +179,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Важливо: UseCors викликається ПЕРЕД UseAuthentication та UseAuthorization
 app.UseCors("FrontendPolicy");
