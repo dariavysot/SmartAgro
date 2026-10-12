@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import { GreenhouseProvider, useGreenhouse } from './context/GreenhouseContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
@@ -28,7 +28,6 @@ import {
   Cpu,
   Warehouse,
   Plus,
-  LogOut,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -46,7 +45,6 @@ interface TelemetryRecord {
 
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { logout, user } = useAuth();
   const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
   const { telemetry: liveTelemetry, isConnected } = useTelemetryHub();
 
@@ -223,32 +221,8 @@ function DashboardLayout() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Верхня панель із навігацією та кнопкою виходу */}
-        <header className="flex items-center justify-between px-6 py-3 bg-slate-900/80 border-b border-slate-800 backdrop-blur-sm z-10">
-          <Navbar isStreaming={isConnected} />
+        <Navbar isStreaming={isConnected} />
 
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-medium text-slate-200">
-                {user?.username || user?.email}
-              </span>
-              <span className="text-[10px] text-slate-400">
-                {user?.role === 'Admin' ? 'Адміністратор' : 'Користувач'}
-              </span>
-            </div>
-
-            <button
-              onClick={logout}
-              title="Вийти з облікового запису"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl transition-all cursor-pointer shadow-sm active:scale-95"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Вийти</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Основна область контенту */}
         <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
           {activeTab === 'thresholds' ? (
             <Thresholds />
