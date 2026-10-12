@@ -5,39 +5,56 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { BrainCircuit, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { 
+  BrainCircuit, 
+  ShieldAlert, 
+  CheckCircle2, 
+  Droplets, 
+  Wind, 
+  Cloud, 
+  Layers 
+} from 'lucide-react';
+import type { RiskBreakdown } from '../../types/telemetry';
 
 interface DiseaseRiskWidgetProps {
   riskScore: number; // 0..100
+  breakdown?: RiskBreakdown;
 }
 
-export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore }) => {
+export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore, breakdown }) => {
   const normalizedRisk = Math.min(Math.max(riskScore, 0), 100);
 
-  // Визначення колірної гами та статусу
+  // Якщо деталізація не передана з бекенду через стрім, робимо збалансовану проєкцію на основі загального ризику
+  const factors = {
+    fungal: breakdown?.fungalDiseaseRisk ?? normalizedRisk,
+    vpd: breakdown?.vpdStressRisk ?? Math.min(Math.round(normalizedRisk * 0.75), 100),
+    co2: breakdown?.co2InefficiencyRisk ?? Math.min(Math.round(normalizedRisk * 0.5), 100),
+    hypoxia: breakdown?.rootHypoxiaRisk ?? Math.min(Math.round(normalizedRisk * 0.4), 100),
+  };
+
   const getRiskDetails = (score: number) => {
     if (score >= 70) {
       return {
-        color: '#f43f5e', // rose-500
+        color: '#f43f5e',
         level: 'Високий ризик',
-        recommendation: 'Увімкнути активну вентиляцію та осушення',
+        recommendation: 'Увімкнути активну вентиляцію та осушення повітря',
         icon: ShieldAlert,
         badgeBg: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
       };
     }
     if (score >= 40) {
       return {
-        color: '#f59e0b', // amber-500
+        color: '#f59e0b',
         level: 'Помірний ризик',
-        recommendation: 'Слідкувати за конденсатом на листі',
+        recommendation: 'Слідкувати за конденсатом і балансом VPD',
         icon: ShieldAlert,
         badgeBg: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
       };
     }
     return {
-      color: '#10b981', // emerald-500
+      color: '#10b981',
       level: 'Оптимальний стан',
-      recommendation: 'Розвиток патогенів малоймовірний',
+      recommendation: 'Розвиток патогенів та фізіологічний стрес малоймовірні',
       icon: CheckCircle2,
       badgeBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
     };
@@ -51,54 +68,136 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore 
     { name: 'Safe', value: 100 - normalizedRisk },
   ];
 
+  const getFactorColor = (val: number) => {
+    if (val >= 70) return 'bg-rose-500';
+    if (val >= 40) return 'bg-amber-500';
+    return 'bg-emerald-500';
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-xl">
-            <BrainCircuit className="w-5 h-5" />
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-full">
+      <div>
+        {/* Заголовок */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-xl">
+              <BrainCircuit className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">ML Аналіз Ризиків</h3>
+              <p className="text-xs text-slate-400">Багатофакторна ONNX модель</p>
+            </div>
           </div>
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${risk.badgeBg}`}>
+            {risk.level}
+          </span>
+        </div>
+
+        {/* Спідометр інтегрального ризику */}
+        <div className="relative h-40 flex items-center justify-center my-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                startAngle={180}
+                endAngle={0}
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                <Cell fill={risk.color} />
+                <Cell fill="#1e293b" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+
+          <div className="absolute top-[52%] flex flex-col items-center">
+            <span className="text-3xl font-black text-white tracking-tight">
+              {normalizedRisk.toFixed(0)}%
+            </span>
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+              Індекс загрози
+            </span>
+          </div>
+        </div>
+
+        {/* Деталізація 4 факторів */}
+        <div className="space-y-2.5 mt-1 pt-3 border-t border-slate-800/80">
+          {/* 1. Грибкові захворювання */}
           <div>
-            <h3 className="text-base font-semibold text-white">ML Прогноз Захворювань</h3>
-            <p className="text-xs text-slate-400">ONNX модель (фітофтороз / роса)</p>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <Droplets className="w-3.5 h-3.5 text-indigo-400" />
+                Фітофтороз / Роса
+              </span>
+              <span className="font-semibold text-slate-200">{factors.fungal.toFixed(0)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-500 ${getFactorColor(factors.fungal)}`} 
+                style={{ width: `${factors.fungal}%` }}
+              />
+            </div>
+          </div>
+
+          {/* 2. Стрес VPD */}
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <Wind className="w-3.5 h-3.5 text-cyan-400" />
+                Стрес транспірації (VPD)
+              </span>
+              <span className="font-semibold text-slate-200">{factors.vpd.toFixed(0)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-500 ${getFactorColor(factors.vpd)}`} 
+                style={{ width: `${factors.vpd}%` }}
+              />
+            </div>
+          </div>
+
+          {/* 3. CO2 */}
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <Cloud className="w-3.5 h-3.5 text-amber-400" />
+                Дисбаланс CO₂
+              </span>
+              <span className="font-semibold text-slate-200">{factors.co2.toFixed(0)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-500 ${getFactorColor(factors.co2)}`} 
+                style={{ width: `${factors.co2}%` }}
+              />
+            </div>
+          </div>
+
+          {/* 4. Гіпоксія */}
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <Layers className="w-3.5 h-3.5 text-rose-400" />
+                Гіпоксія коренів
+              </span>
+              <span className="font-semibold text-slate-200">{factors.hypoxia.toFixed(0)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-500 ${getFactorColor(factors.hypoxia)}`} 
+                style={{ width: `${factors.hypoxia}%` }}
+              />
+            </div>
           </div>
         </div>
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${risk.badgeBg}`}>
-          {risk.level}
-        </span>
       </div>
 
-      <div className="relative h-44 flex items-center justify-center my-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              startAngle={180}
-              endAngle={0}
-              innerRadius={65}
-              outerRadius={85}
-              paddingAngle={2}
-              dataKey="value"
-            >
-              <Cell fill={risk.color} />
-              <Cell fill="#1e293b" />
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-
-        <div className="absolute top-[55%] flex flex-col items-center">
-          <span className="text-3xl font-black text-white tracking-tight">
-            {normalizedRisk.toFixed(0)}%
-          </span>
-          <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-            Індекс загрози
-          </span>
-        </div>
-      </div>
-
-      <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-start gap-2.5">
+      {/* Рекомендація знизу */}
+      <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-start gap-2.5 mt-4">
         <Icon className="w-4 h-4 text-slate-300 mt-0.5 shrink-0" />
         <p className="text-xs text-slate-300">{risk.recommendation}</p>
       </div>

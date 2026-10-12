@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
 from skl2onnx import convert_sklearn
 from skl2onnx.common.data_types import FloatTensorType
 
@@ -37,7 +38,7 @@ vpd_stress = np.where(
 )
 vpd_risk = np.clip(vpd_stress * 100.0 + np.random.normal(0.0, 2.0, n_samples), 0.0, 100.0)
 
-# [Фактор 3]: Стрес неефективності або надлишку CO2 (дефіцит <600 ppm або токсичність >1100 ppm)
+# [Фактор 3]: Стрес неефективності або надлишку CO2 (дефіцит <600 ppm або надлишок >1100 ppm)
 co2_stress = np.where(
     co2 < 600.0,
     np.maximum(0.0, (600.0 - co2) / 250.0),
@@ -45,35 +46,39 @@ co2_stress = np.where(
 )
 co2_risk = np.clip(co2_stress * 100.0 + np.random.normal(0.0, 2.0, n_samples), 0.0, 100.0)
 
-# [Фактор 4]: Гіпоксія кореневої зони (застій вологи при високих температурах субстрату)
+# [Фактор 4]: Гіпоксія кореневої зони (застій вологи при підвищеній температурі)
 hypoxia_stress = np.maximum(0.0, (soil_moisture - 70.0) / 20.0) * (1.0 + np.maximum(0.0, (temperatures - 24.0) / 14.0))
 hypoxia_risk = np.clip(hypoxia_stress * 100.0 + np.random.normal(0.0, 2.0, n_samples), 0.0, 100.0)
 
 # 3. Формування матриць ознак X та цільових значень y
 X = np.column_stack([temperatures, humidity, co2, soil_moisture]).astype(np.float32)
-# y містить 4 вектори цілей: Fungal, VPD, CO2, Hypoxia
 y = np.column_stack([fungal_risk, vpd_risk, co2_risk, hypoxia_risk]).astype(np.float32)
 
-# 4. Навчання регресійної моделі випадкового лісу (Multi-output)
-model = RandomForestRegressor(
+# 4. Навчання MultiOutputRegressor з базовим RandomForestRegressor
+base_rf = RandomForestRegressor(
     n_estimators=35,
     max_depth=6,
     random_state=42,
     n_jobs=-1
 )
+model = MultiOutputRegressor(base_rf)
 model.fit(X, y)
 
 # 5. Експорт у формат ONNX
-# Вхідний тензор: [None, 4], Вихідний тензор: [None, 4]
 initial_type = [('float_input', FloatTensorType([None, 4]))]
-onnx_model = convert_sklearn(model, initial_types=initial_type, target_opset=15)
+onnx_model = convert_sklearn(
+    model,
+    initial_types=initial_type,
+    target_opset=15
+)
 
 model_filename = "greenhouse_risk.onnx"
 with open(model_filename, "wb") as f:
     f.write(onnx_model.SerializeToString())
 
-print(f"[OK] Модель успішно навчена та збережена у файл {model_filename}")
-print("Структура вихідного вектора прогнозу:")
+print(f"[OK] Модель успішно збережена у {model_filename} через MultiOutputRegressor")
+print("Розмірність входу : [None, 4]")
+print("Розмірність виходу: [None, 4]")
 print("  [0] -> FungalDiseaseRisk (%) — базова формула")
 print("  [1] -> VpdStressRisk (%)")
 print("  [2] -> Co2InefficiencyRisk (%)")
