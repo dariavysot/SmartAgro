@@ -297,11 +297,11 @@ function DashboardLayout() {
               </div>
 
               {/* Графіки та ML */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                <div className="lg:col-span-2 h-full">
                   <TelemetryChart data={history} />
                 </div>
-                <div>
+                <div className="h-full">
                   <DiseaseRiskWidget riskScore={currentRisk ?? 0} />
                 </div>
               </div>
