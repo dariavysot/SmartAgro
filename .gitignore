@@ -24,3 +24,8 @@ out/
 *.log
 appsettings.Production.json
 secrets.json
+# Database files and dumps
+*.sql
+*.db
+*.db-shm
+*.db-wal
