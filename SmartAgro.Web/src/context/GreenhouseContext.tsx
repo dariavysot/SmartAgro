@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { Greenhouse } from '../types/greenhouse';
 import { useAuth } from './AuthContext';
 import { apiClient } from '../api/client';
@@ -20,7 +20,7 @@ export const GreenhouseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [selectedGreenhouse, setSelectedGreenhouse] = useState<Greenhouse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchGreenhouses = async () => {
+  const fetchGreenhouses = useCallback(async () => {
     if (!isAuthenticated) {
       setGreenhouses([]);
       setSelectedGreenhouse(null);
@@ -29,9 +29,8 @@ export const GreenhouseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       setIsLoading(true);
-      const endpoint = user?.role === 'Admin' ? '/Greenhouses/all' : '/Greenhouses/my';
-      
-      const response = await apiClient.get<Greenhouse[]>(endpoint);
+      // Канонічний REST-ендпоінт, де бекенд повертає об'єкти відповідно до ролі
+      const response = await apiClient.get<Greenhouse[]>('/Greenhouses');
       const data = response.data || [];
 
       setGreenhouses(data);
@@ -44,17 +43,20 @@ export const GreenhouseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         localStorage.setItem(STORAGE_KEY, current.id);
       } else {
         setSelectedGreenhouse(null);
+        localStorage.removeItem(STORAGE_KEY);
       }
     } catch (error) {
       console.error('Помилка завантаження теплиць:', error);
+      setGreenhouses([]);
+      setSelectedGreenhouse(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     fetchGreenhouses();
-  }, [isAuthenticated, user?.role]);
+  }, [fetchGreenhouses, user?.role]);
 
   const setSelectedGreenhouseId = (id: string) => {
     const found = greenhouses.find((g: Greenhouse) => g.id === id);

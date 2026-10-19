@@ -21,40 +21,55 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     }
 
     /// <summary>
-    /// Отримати теплиці поточного автентифікованого користувача
+    /// GET /api/greenhouses
+    /// Основний REST ендпоінт. Отримує список теплиць із підтримкою пошуку, фільтрації та сортування.
     /// </summary>
-    [HttpGet("my")]
-    public async Task<IActionResult> GetMyGreenhouses(CancellationToken ct)
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGreenhouses(
+        [FromQuery] string? search,
+        [FromQuery] string? location,
+        [FromQuery] string? sortBy = "name",
+        [FromQuery] bool isDescending = false,
+        CancellationToken ct = default)
     {
         var userId = GetCurrentUserId();
-        if (userId == Guid.Empty)
-            return Unauthorized();
+        var isAdmin = User.IsInRole("Admin");
 
-        var greenhouses = await dbContext.Greenhouses
-            .AsNoTracking()
-            .Where(g => g.UserId == userId)
-            .Select(g => new
-            {
-                g.Id,
-                g.Name,
-                g.Location,
-                ReadingsCount = g.SensorReadings.Count
-            })
-            .ToListAsync(ct);
-
-        return Ok(greenhouses);
-    }
-
-    /// <summary>
-    /// Отримати всі теплиці системи (Тільки для Admin)
-    /// </summary>
-    [HttpGet("all")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetAllGreenhouses(CancellationToken ct)
-    {
-        var greenhouses = await dbContext.Greenhouses
+        var query = dbContext.Greenhouses
             .AsNoTracking()
             .Include(g => g.User)
+            .AsQueryable();
+
+        // Якщо не Admin — дозволено бачити тільки власні закріплені теплиці
+        if (!isAdmin)
+        {
+            query = query.Where(g => g.UserId == userId);
+        }
+
+        // Пошук за назвою або сектором
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.Trim().ToLower();
+            query = query.Where(g => g.Name.ToLower().Contains(searchLower)
+                                  || g.Location.ToLower().Contains(searchLower));
+        }
+
+        // Точна фільтрація за локацією
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            query = query.Where(g => g.Location == location.Trim());
+        }
+
+        // Сортування
+        query = (sortBy?.ToLower()) switch
+        {
+            "location" => isDescending ? query.OrderByDescending(g => g.Location) : query.OrderBy(g => g.Location),
+            "readings" => isDescending ? query.OrderByDescending(g => g.SensorReadings.Count) : query.OrderBy(g => g.SensorReadings.Count),
+            _ => isDescending ? query.OrderByDescending(g => g.Name) : query.OrderBy(g => g.Name)
+        };
+
+        var result = await query
             .Select(g => new
             {
                 g.Id,
@@ -67,58 +82,96 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
             })
             .ToListAsync(ct);
 
-        return Ok(greenhouses);
+        return Ok(result);
     }
 
     /// <summary>
-    /// Отримати список зареєстрованих клієнтів для прив'язки теплиці (Тільки для Admin)
+    /// GET /api/greenhouses/all
+    /// Псевдонім для зворотної сумісності з попередніми версіями клієнта
     /// </summary>
-    [HttpGet("users-list")]
+    [HttpGet("all")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetUsersForAssignment(CancellationToken ct)
-    {
-        var users = await dbContext.Users
-            .AsNoTracking()
-            .Where(u => u.Role != null && u.Role.Name != UserRole.Admin) // Звертаємось до u.Role.Name
-            .Select(u => new
-            {
-                u.Id,
-                u.Username,
-                u.Email,
-                Role = u.Role != null ? u.Role.Name.ToString() : "User"
-            })
-            .ToListAsync(ct);
+    public Task<IActionResult> GetAllGreenhousesLegacy(CancellationToken ct) =>
+        GetGreenhouses(null, null, "name", false, ct);
 
-        return Ok(users);
+    /// <summary>
+    /// GET /api/greenhouses/my
+    /// Псевдонім для отримання списку тільки власних теплиць
+    /// </summary>
+    [HttpGet("my")]
+    public Task<IActionResult> GetMyGreenhousesLegacy(CancellationToken ct) =>
+        GetGreenhouses(null, null, "name", false, ct);
+
+    /// <summary>
+    /// GET /api/greenhouses/{id}
+    /// Отримати детальну інформацію про конкретну теплицю за її Id
+    /// </summary>
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGreenhouseById(Guid id, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        var isAdmin = User.IsInRole("Admin");
+
+        var greenhouse = await dbContext.Greenhouses
+            .AsNoTracking()
+            .Include(g => g.User)
+            .Where(g => g.Id == id)
+            .Select(g => new
+            {
+                g.Id,
+                g.Name,
+                g.Location,
+                OwnerId = g.UserId,
+                OwnerUsername = g.User != null ? g.User.Username : "Невідомо",
+                OwnerEmail = g.User != null ? g.User.Email : "Невідомо",
+                ReadingsCount = g.SensorReadings.Count
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (greenhouse == null)
+            return NotFound(new { message = $"Теплицю з Id '{id}' не знайдено." });
+
+        if (!isAdmin && greenhouse.OwnerId != userId)
+            return Forbid();
+
+        return Ok(greenhouse);
     }
 
     /// <summary>
-    /// Створити та налаштувати нову теплицю і закріпити її за клієнтом (Тільки для Admin)
+    /// POST /api/greenhouses
+    /// Створити новий тепличний сектор (Тільки Admin). Повертає 201 Created з заголовком Location.
     /// </summary>
     [HttpPost]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateGreenhouse([FromBody] CreateGreenhouseDto dto, CancellationToken ct)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var targetUser = await dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == dto.UserId, ct);
 
         if (targetUser == null)
         {
-            return BadRequest(new { message = "Вказаного користувача не знайдено в системі." });
+            return BadRequest(new { message = "Вказаного користувача-власника не знайдено в системі." });
         }
 
         var greenhouse = new Greenhouse
         {
             Id = Guid.NewGuid(),
-            Name = dto.Name,
-            Location = dto.Location,
+            Name = dto.Name.Trim(),
+            Location = dto.Location.Trim(),
             UserId = dto.UserId
         };
 
         await dbContext.Greenhouses.AddAsync(greenhouse, ct);
 
-        // Початкові межі (Thresholds)
+        // Ініціалізація стандартних безпечних порогів мікроклімату
         var defaultThresholds = new Threshold
         {
             GreenhouseId = greenhouse.Id,
@@ -132,31 +185,37 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 
         await dbContext.SaveChangesAsync(ct);
 
-        // Повертаємо чистий об'єкт без циклічних зв'язків
-        return Ok(new
+        var responseDto = new
         {
             greenhouse.Id,
             greenhouse.Name,
             greenhouse.Location,
             greenhouse.UserId,
             OwnerUsername = targetUser.Username,
-            OwnerEmail = targetUser.Email
-        });
+            OwnerEmail = targetUser.Email,
+            ReadingsCount = 0
+        };
+
+        return CreatedAtAction(nameof(GetGreenhouseById), new { id = greenhouse.Id }, responseDto);
     }
 
     /// <summary>
-    /// Оновити параметри теплиці (Тільки для Admin)
-    /// </summary>
-    /// <summary>
-    /// Оновити параметри теплиці та за потреби змінити власника (Тільки для Admin)
+    /// PUT /api/greenhouses/{id}
+    /// Оновити назву, сектор або власника теплиці (Тільки Admin)
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateGreenhouse(Guid id, [FromBody] UpdateGreenhouseDto dto, CancellationToken ct)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var greenhouse = await dbContext.Greenhouses.FirstOrDefaultAsync(g => g.Id == id, ct);
         if (greenhouse == null)
-            return NotFound(new { message = "Теплицю не знайдено." });
+            return NotFound(new { message = $"Теплицю з Id '{id}' не знайдено." });
 
         if (!string.IsNullOrWhiteSpace(dto.Name))
             greenhouse.Name = dto.Name.Trim();
@@ -164,7 +223,6 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Location))
             greenhouse.Location = dto.Location.Trim();
 
-        // Якщо передано нового власника і він відрізняється від поточного
         if (dto.UserId.HasValue && dto.UserId.Value != Guid.Empty && dto.UserId.Value != greenhouse.UserId)
         {
             var userExists = await dbContext.Users.AnyAsync(u => u.Id == dto.UserId.Value, ct);
@@ -186,10 +244,13 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     }
 
     /// <summary>
-    /// Видалити теплицю з комплексу (Тільки для Admin)
+    /// DELETE /api/greenhouses/{id}
+    /// Демонтувати теплицю та всі пов'язані ресурси (Тільки Admin). Повертає 204 No Content.
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteGreenhouse(Guid id, CancellationToken ct)
     {
         var greenhouse = await dbContext.Greenhouses
@@ -197,9 +258,8 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
             .FirstOrDefaultAsync(g => g.Id == id, ct);
 
         if (greenhouse == null)
-            return NotFound(new { message = "Теплицю не знайдено." });
+            return NotFound(new { message = $"Теплицю з Id '{id}' не знайдено." });
 
-        // Очищаємо зв'язані пороги та сповіщення, якщо вони є в контексті
         var thresholds = await dbContext.Thresholds.Where(t => t.GreenhouseId == id).ToListAsync(ct);
         if (thresholds.Count > 0)
             dbContext.Thresholds.RemoveRange(thresholds);
@@ -208,7 +268,6 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
         if (alerts.Count > 0)
             dbContext.Alerts.RemoveRange(alerts);
 
-        // Видаляємо саму теплицю (разом із SensorReadings через навігаційну властивість)
         dbContext.Greenhouses.Remove(greenhouse);
         await dbContext.SaveChangesAsync(ct);
 
@@ -216,29 +275,25 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     }
 
     /// <summary>
-    /// Отримати зведену статистику (GreenhouseSummaryDto) для аналітики
+    /// GET /api/greenhouses/users-list
+    /// Отримати список клієнтів для вибору власника теплиці у випадаючому списку
     /// </summary>
-    [HttpGet("summary/{id:guid}")]
-    public async Task<IActionResult> GetSummary(Guid id, CancellationToken ct)
+    [HttpGet("users-list")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetUsersForAssignment(CancellationToken ct)
     {
-        var summary = await dbContext.Greenhouses
+        var users = await dbContext.Users
             .AsNoTracking()
-            .Where(g => g.Id == id)
-            .Select(g => new GreenhouseSummaryDto
+            .Where(u => u.Role != null && u.Role.Name != UserRole.Admin)
+            .Select(u => new
             {
-                Id = g.Id,
-                Name = g.Name,
-                Location = g.Location,
-                TotalReadingsCount = g.SensorReadings.Count,
-                AverageTemperature = g.SensorReadings.Any() ? Math.Round(g.SensorReadings.Average(r => r.Temperature), 2) : 0,
-                MaxTemperature = g.SensorReadings.Any() ? Math.Round(g.SensorReadings.Max(r => r.Temperature), 2) : 0,
-                ActiveAlertsCount = dbContext.Alerts.Count(a => a.GreenhouseId == g.Id && !a.IsResolved)
+                u.Id,
+                u.Username,
+                u.Email,
+                Role = u.Role != null ? u.Role.Name.ToString() : "User"
             })
-            .FirstOrDefaultAsync(ct);
+            .ToListAsync(ct);
 
-        if (summary == null)
-            return NotFound(new { message = "Теплицю не знайдено." });
-
-        return Ok(summary);
+        return Ok(users);
     }
 }

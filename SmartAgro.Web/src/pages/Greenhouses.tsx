@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useGreenhouse } from '../context/GreenhouseContext';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
+import type { Greenhouse as GreenhouseType } from '../types/greenhouse';
 import {
   Warehouse,
   Plus,
@@ -12,7 +13,10 @@ import {
   Pencil,
   Trash2,
   Search,
-  Check
+  Check,
+  Filter,
+  ArrowUpDown,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -28,25 +32,32 @@ interface UserOption {
   role?: string | RoleObject;
 }
 
+type SortField = 'name' | 'location' | 'readings';
+
 export const Greenhouses: React.FC = () => {
   const { greenhouses, selectedGreenhouse, setSelectedGreenhouseId, refreshGreenhouses } = useGreenhouse();
   const { user } = useAuth();
 
-  // Безпечне визначення ролі адміністратора
   const userRoleName =
     typeof user?.role === 'object' && user?.role !== null
       ? (user.role as RoleObject).name
       : user?.role;
   const isAdmin = userRoleName === 'Admin';
 
-  // Стан для створення
+  // Стан панелі пошуку, фільтрації та сортування
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortField>('name');
+  const [isDescending, setIsDescending] = useState<boolean>(false);
+
+  // Стан створення
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [searchUserQuery, setSearchUserQuery] = useState('');
 
-  // Стан для редагування
+  // Стан редагування
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingGreenhouseId, setEditingGreenhouseId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -54,7 +65,7 @@ export const Greenhouses: React.FC = () => {
   const [editUserId, setEditUserId] = useState('');
   const [editSearchUserQuery, setEditSearchUserQuery] = useState('');
 
-  // Стан для видалення
+  // Стан видалення
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingGreenhouse, setDeletingGreenhouse] = useState<{ id: string; name: string } | null>(null);
 
@@ -62,7 +73,18 @@ export const Greenhouses: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Завантаження списку клієнтів (тільки для Admin)
+  // Отримання списку унікальних локацій для селектора фільтра
+  const availableLocations = useMemo(() => {
+    const locSet = new Set<string>();
+    greenhouses.forEach((g) => {
+      if (g.location && g.location.trim()) {
+        locSet.add(g.location.trim());
+      }
+    });
+    return Array.from(locSet);
+  }, [greenhouses]);
+
+  // Завантаження клієнтів для вибору власника (тільки Admin)
   useEffect(() => {
     if (isAdmin) {
       apiClient.get<UserOption[]>('/Greenhouses/users-list')
@@ -78,7 +100,44 @@ export const Greenhouses: React.FC = () => {
     }
   }, [isAdmin]);
 
-  // Фільтрація клієнтів за ім'ям або поштою при створенні
+  // Фільтрація, пошук та сортування карток теплиць
+  const processedGreenhouses = useMemo(() => {
+    let result = [...greenhouses];
+
+    // 1. Пошук (за назвою або локацією)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (g) =>
+          g.name.toLowerCase().includes(q) ||
+          (g.location && g.location.toLowerCase().includes(q))
+      );
+    }
+
+    // 2. Фільтрація за конкретною локацією
+    if (selectedLocationFilter !== 'all') {
+      result = result.filter((g) => g.location === selectedLocationFilter);
+    }
+
+    // 3. Сортування
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'name') {
+        comparison = a.name.localeCompare(b.name, 'uk', { sensitivity: 'base' });
+      } else if (sortBy === 'location') {
+        comparison = (a.location || '').localeCompare(b.location || '', 'uk', { sensitivity: 'base' });
+      } else if (sortBy === 'readings') {
+        const countA = a.readingsCount ?? 0;
+        const countB = b.readingsCount ?? 0;
+        comparison = countA - countB;
+      }
+      return isDescending ? -comparison : comparison;
+    });
+
+    return result;
+  }, [greenhouses, searchQuery, selectedLocationFilter, sortBy, isDescending]);
+
+  // Фільтрація клієнтів для модальних вікон
   const filteredUsers = useMemo(() => {
     const q = searchUserQuery.toLowerCase().trim();
     if (!q) return usersList;
@@ -89,7 +148,6 @@ export const Greenhouses: React.FC = () => {
     );
   }, [usersList, searchUserQuery]);
 
-  // Фільтрація клієнтів при редагуванні
   const editFilteredUsers = useMemo(() => {
     const q = editSearchUserQuery.toLowerCase().trim();
     if (!q) return usersList;
@@ -100,7 +158,13 @@ export const Greenhouses: React.FC = () => {
     );
   }, [usersList, editSearchUserQuery]);
 
-  // Відкриття форми створення
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedLocationFilter('all');
+    setSortBy('name');
+    setIsDescending(false);
+  };
+
   const openCreateModal = () => {
     setError(null);
     setName('');
@@ -112,8 +176,7 @@ export const Greenhouses: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // Відкриття форми редагування
-  const openEditModal = (gh: any, e: React.MouseEvent) => {
+  const openEditModal = (gh: GreenhouseType, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingGreenhouseId(gh.id);
     setEditName(gh.name || '');
@@ -124,8 +187,7 @@ export const Greenhouses: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  // Відкриття підтвердження видалення
-  const openDeleteModal = (gh: any, e: React.MouseEvent) => {
+  const openDeleteModal = (gh: GreenhouseType, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeletingGreenhouse({ id: gh.id, name: gh.name });
     setIsDeleteModalOpen(true);
@@ -202,7 +264,7 @@ export const Greenhouses: React.FC = () => {
       toast.success(`Теплицю "${deletingGreenhouse.name}" успішно демонтовано та видалено!`);
 
       if (selectedGreenhouse?.id === deletingGreenhouse.id) {
-        const remaining = greenhouses.filter((g: any) => g.id !== deletingGreenhouse.id);
+        const remaining = greenhouses.filter((g) => g.id !== deletingGreenhouse.id);
         if (remaining.length > 0) {
           setSelectedGreenhouseId(remaining[0].id);
         }
@@ -222,8 +284,8 @@ export const Greenhouses: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Шапка */}
-      <div className="flex items-center justify-between">
+      {/* Заголовок та кнопка створення */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-100">
             {isAdmin ? 'Адміністрування теплиць' : 'Мої підключені теплиці'}
@@ -235,11 +297,10 @@ export const Greenhouses: React.FC = () => {
           </p>
         </div>
 
-        {/* Кнопка створення доступна тільки адміну */}
         {isAdmin && (
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Змонтувати теплицю
@@ -247,89 +308,193 @@ export const Greenhouses: React.FC = () => {
         )}
       </div>
 
-      {/* Список об'єктів (кожна картка клікабельна для вибору) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {greenhouses.map((gh: any) => {
-          const isSelected = selectedGreenhouse?.id === gh.id;
-          return (
-            <div
-              key={gh.id}
-              onClick={() => setSelectedGreenhouseId(gh.id)}
-              className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer select-none hover:scale-[1.01] ${
-                isSelected
-                  ? 'bg-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/40'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90'
-              }`}
+      {/* Панель фільтрації, пошуку та сортування */}
+      <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl shadow-sm space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+          
+          {/* Поле пошуку */}
+          <div className="lg:col-span-5 relative">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Пошук теплиці за назвою або сектором..."
+              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/80 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-300 px-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Фільтр за локацією */}
+          <div className="lg:col-span-3 flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-500 shrink-0" />
+            <select
+              value={selectedLocationFilter}
+              onChange={(e) => setSelectedLocationFilter(e.target.value)}
+              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/80 transition-colors cursor-pointer"
             >
-              <div>
-                <div className="flex items-start justify-between mb-3">
-                  <div
-                    className={`p-2.5 rounded-xl border transition-colors ${
-                      isSelected
-                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    }`}
-                  >
-                    <Warehouse className="w-5 h-5" />
-                  </div>
+              <option value="all">Усі сектори ({greenhouses.length})</option>
+              {availableLocations.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))}
+            </select>
+          </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {isAdmin && (
-                      <>
-                        <button
-                          onClick={(e) => openEditModal(gh, e)}
-                          title="Редагувати параметри"
-                          className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => openDeleteModal(gh, e)}
-                          title="Демонтувати / Видалити"
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                    {isSelected && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium ml-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Активна
-                      </span>
-                    )}
-                  </div>
-                </div>
+          {/* Сортування */}
+          <div className="lg:col-span-4 flex items-center gap-2">
+            <ArrowUpDown className="w-4 h-4 text-slate-500 shrink-0" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortField)}
+              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/80 transition-colors cursor-pointer"
+            >
+              <option value="name">Сортувати: За назвою</option>
+              <option value="location">Сортувати: За сектором</option>
+              <option value="readings">Сортувати: За активністю датчиків</option>
+            </select>
 
-                <h3 className="text-base font-semibold text-slate-100">{gh.name}</h3>
+            <button
+              onClick={() => setIsDescending((prev) => !prev)}
+              title={isDescending ? 'За спаданням' : 'За зростанням'}
+              className="px-2.5 py-2 bg-slate-950/70 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs text-slate-300 transition-colors cursor-pointer shrink-0"
+            >
+              {isDescending ? '↓ Спад' : '↑ Зрост'}
+            </button>
 
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{gh.location || 'Локація не вказана'}</span>
-                </div>
+            {(searchQuery || selectedLocationFilter !== 'all' || sortBy !== 'name' || isDescending) && (
+              <button
+                onClick={handleResetFilters}
+                title="Скинути параметри фільтрації"
+                className="p-2 bg-slate-950/70 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
-                {isAdmin && (gh.ownerEmail || gh.ownerUsername) && (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 mt-3 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/10">
-                    <UserIcon className="w-3.5 h-3.5" />
-                    <span>Клієнт: {gh.ownerUsername || gh.ownerEmail}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-mono">ID: {gh.id.slice(0, 8)}...</span>
-                {isSelected && (
-                  <span className="text-[11px] font-semibold text-emerald-400">
-                    Вибрано
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {/* Інформаційний рядок під фільтром */}
+        <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1 border-t border-slate-800/40">
+          <span>
+            Відображається: <strong className="text-emerald-400 font-semibold">{processedGreenhouses.length}</strong> з {greenhouses.length} комплексів
+          </span>
+          {searchQuery && (
+            <span className="truncate max-w-xs">
+              Запит: <span className="text-slate-300 font-mono">"{searchQuery}"</span>
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Модальне вікно створення нової теплиці з живим пошуком клієнта */}
+      {/* Якщо результатів пошуку 0 */}
+      {processedGreenhouses.length === 0 ? (
+        <div className="p-12 text-center bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
+          <Warehouse className="w-10 h-10 text-slate-600 mx-auto" />
+          <h3 className="text-sm font-semibold text-slate-300">Теплиць не знайдено</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Жоден тепличний комплекс не відповідає критеріям пошуку. Спробуйте змінити фільтри або пошуковий запит.
+          </p>
+          <button
+            onClick={handleResetFilters}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs transition-colors cursor-pointer"
+          >
+            Скинути пошук
+          </button>
+        </div>
+      ) : (
+        /* Список карток */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {processedGreenhouses.map((gh) => {
+            const isSelected = selectedGreenhouse?.id === gh.id;
+            return (
+              <div
+                key={gh.id}
+                onClick={() => setSelectedGreenhouseId(gh.id)}
+                className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer select-none hover:scale-[1.01] ${
+                  isSelected
+                    ? 'bg-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/40'
+                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div
+                      className={`p-2.5 rounded-xl border transition-colors ${
+                        isSelected
+                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                          : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      }`}
+                    >
+                      <Warehouse className="w-5 h-5" />
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={(e) => openEditModal(gh, e)}
+                            title="Редагувати параметри"
+                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => openDeleteModal(gh, e)}
+                            title="Демонтувати / Видалити"
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      {isSelected && (
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium ml-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Активна
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <h3 className="text-base font-semibold text-slate-100">{gh.name}</h3>
+
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{gh.location || 'Локація не вказана'}</span>
+                  </div>
+
+                  {isAdmin && (gh.ownerEmail || gh.ownerUsername) && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 mt-3 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/10">
+                      <UserIcon className="w-3.5 h-3.5" />
+                      <span>Клієнт: {gh.ownerUsername || gh.ownerEmail}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-mono">ID: {gh.id.slice(0, 8)}...</span>
+                  {isSelected && (
+                    <span className="text-[11px] font-semibold text-emerald-400">
+                      Вибрано
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Модальне вікно створення */}
       {isAdmin && isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
@@ -412,7 +577,7 @@ export const Greenhouses: React.FC = () => {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="наприклад: Теплиця №3 (Суниця)"
+                  placeholder="наприклад: Головна Теплиця (Сектор A)"
                   className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
@@ -425,7 +590,7 @@ export const Greenhouses: React.FC = () => {
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="наприклад: Сектор В, Ряд 1"
+                  placeholder="наприклад: Сектор А, Ряд 2"
                   className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
@@ -451,7 +616,7 @@ export const Greenhouses: React.FC = () => {
         </div>
       )}
 
-      {/* Модальне вікно редагування теплиці з живим пошуком */}
+      {/* Модальне вікно редагування */}
       {isAdmin && isEditModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
@@ -528,7 +693,7 @@ export const Greenhouses: React.FC = () => {
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  placeholder="наприклад: Теплиця №3 (Суниця)"
+                  placeholder="наприклад: Головна Теплиця"
                   className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
@@ -541,7 +706,7 @@ export const Greenhouses: React.FC = () => {
                   type="text"
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
-                  placeholder="наприклад: Сектор В, Ряд 1"
+                  placeholder="наприклад: Сектор А"
                   className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
@@ -567,7 +732,7 @@ export const Greenhouses: React.FC = () => {
         </div>
       )}
 
-      {/* Модальне вікно підтвердження видалення теплиці */}
+      {/* Модальне вікно видалення */}
       {isAdmin && isDeleteModalOpen && deletingGreenhouse && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
