@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { GreenhouseProvider, useGreenhouse } from './context/GreenhouseContext';
@@ -43,6 +43,16 @@ interface TelemetryRecord {
   timestamp: string;
 }
 
+interface BackendAlert {
+  id: number;
+  greenhouseId: string;
+  greenhouseName: string;
+  message: string;
+  severity: string;
+  isResolved: boolean;
+  createdAt: string;
+}
+
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
@@ -52,8 +62,29 @@ function DashboardLayout() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [currentSnapshot, setCurrentSnapshot] = useState<TelemetryRecord | null>(null);
 
-  // 1. Завантаження останнього зрізу та історії з БД при зміні обраної теплиці
+  // 1. Завантаження виключно активних сповіщень із бекенду
+  const fetchActiveAlerts = useCallback(async () => {
+    try {
+      const res = await apiClient.get<BackendAlert[]>('/Alerts/active');
+      const filtered = res.data
+        .filter((a) => !selectedGreenhouse?.id || a.greenhouseId === selectedGreenhouse.id)
+        .map((a) => ({
+          id: a.id,
+          message: a.message,
+          type: a.severity,
+          timestamp: a.createdAt,
+          greenhouseName: a.greenhouseName,
+        }));
+      setAlerts(filtered);
+    } catch (err) {
+      console.error('Помилка завантаження активних тривог:', err);
+    }
+  }, [selectedGreenhouse?.id]);
+
+  // 2. Початкове завантаження телеметрії та активних тривог
   useEffect(() => {
+    fetchActiveAlerts();
+
     if (!selectedGreenhouse?.id) {
       setHistory([]);
       setCurrentSnapshot(null);
@@ -99,12 +130,16 @@ function DashboardLayout() {
 
     loadInitialData();
 
+    // Періодичне оновлення активних тривог кожні 15 секунд (щоб підхоплювати створені симулятором інциденти)
+    const interval = setInterval(fetchActiveAlerts, 15000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
-  }, [selectedGreenhouse?.id]);
+  }, [selectedGreenhouse?.id, fetchActiveAlerts]);
 
-  // 2. Обробка живого потоку SignalR
+  // 3. Обробка живого потоку SignalR
   useEffect(() => {
     if (!liveTelemetry) return;
 
@@ -143,38 +178,21 @@ function DashboardLayout() {
       return updated.slice(-20);
     });
 
-    const greenhouseLabel = selectedGreenhouse?.name || 'теплиці';
-
-    if (liveTelemetry.temperature > 35) {
-      const alertId = `temp-${Date.now()}`;
-      toast.error(`Критичний перегрів: ${liveTelemetry.temperature}°C!`, { id: alertId });
-      setAlerts((prev) => [
-        {
-          id: alertId,
-          message: `Перегрів (${greenhouseLabel}): ${liveTelemetry.temperature}°C`,
-          type: 'Critical',
-          timestamp: timeLabel,
-        },
-        ...prev.slice(0, 4),
-      ]);
-    } else if (liveTelemetry.co2Level > 1300) {
-      const alertId = `co2-${Date.now()}`;
-      toast.error(`Висока концентрація CO₂: ${liveTelemetry.co2Level} ppm!`, { id: alertId });
-      setAlerts((prev) => [
-        {
-          id: alertId,
-          message: `Критичний рівень CO₂ (${greenhouseLabel}): ${liveTelemetry.co2Level} ppm`,
-          type: 'Critical',
-          timestamp: timeLabel,
-        },
-        ...prev.slice(0, 4),
-      ]);
+    // Якщо надійшла аномалія — оновлюємо список із сервера, щоб отримати реальний ID з БД
+    if (liveTelemetry.temperature > 35 || liveTelemetry.co2Level > 1300) {
+      fetchActiveAlerts();
     }
-  }, [liveTelemetry, selectedGreenhouse]);
+  }, [liveTelemetry, selectedGreenhouse, fetchActiveAlerts]);
 
-  const handleDismissAlert = (id: string) => {
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
-    toast.success('Інцидент позначено як вирішений');
+  // 4. Позначення тривоги як вирішеної через API
+  const handleDismissAlert = async (id: number) => {
+    try {
+      await apiClient.post(`/Alerts/${id}/resolve`);
+      toast.success(`Тривогу #${id} вирішено`);
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      toast.error('Не вдалося оновити статус тривоги на сервері');
+    }
   };
 
   const getTempStatus = (temp?: number): { status: MetricStatus; text: string } => {
