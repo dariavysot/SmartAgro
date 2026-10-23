@@ -127,10 +127,10 @@ export const Thresholds: React.FC = () => {
       };
 
       await apiClient.post(`/Thresholds/${selectedGreenhouse.id}`, payload);
-      toast.success(`Порогові межі для «${selectedGreenhouse.name}» успішно оновлено на сервері!`);
+      toast.success(`Порогові межі для «${selectedGreenhouse.name}» успішно оновлено!`);
     } catch (err: any) {
       console.error('[Thresholds Save Error]:', err);
-      const msg = err.response?.data?.message || 'Не вдалося зберегти налаштування на сервері.';
+      const msg = err.response?.data?.message || 'Не вдалося зберегти налаштування.';
       toast.error(msg);
     } finally {
       setIsSaving(false);
@@ -140,7 +140,7 @@ export const Thresholds: React.FC = () => {
   const handleReset = () => {
     if (!isAdmin) return;
     setThresholds(defaultThresholds);
-    toast.success('Параметри на формі скинуто до базових. Натисніть «Зберегти», щоб застосувати їх на сервері.');
+    toast.success('Параметри на формі скинуто до базових. Натисніть «Зберегти», щоб застосувати їх.');
   };
 
   return (

@@ -367,7 +367,7 @@ function DashboardLayout() {
                       <Cpu className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400">Останній пакет</p>
+                      <p className="text-xs text-slate-400">Останнє оновлення</p>
                       <p className="text-sm font-semibold text-blue-400">
                         {currentSnapshot?.timestamp
                           ? new Date(currentSnapshot.timestamp).toLocaleTimeString()
