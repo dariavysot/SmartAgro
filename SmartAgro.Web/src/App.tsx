@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { GreenhouseProvider, useGreenhouse } from './context/GreenhouseContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
@@ -11,6 +11,7 @@ import { Register } from './pages/Register';
 import { Thresholds } from './pages/Thresholds';
 import { Greenhouses } from './pages/Greenhouses';
 import { Alerts } from './pages/Alerts';
+import { UsersManagement } from './pages/UsersManagement';
 import { MetricCard } from './components/dashboard/MetricCard';
 import { TelemetryChart, type ChartPoint } from './components/dashboard/TelemetryChart';
 import { DiseaseRiskWidget } from './components/dashboard/DiseaseRiskWidget';
@@ -57,6 +58,7 @@ interface BackendAlert {
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth();
   const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
   const { telemetry: liveTelemetry, isConnected } = useTelemetryHub();
 
@@ -237,7 +239,7 @@ function DashboardLayout() {
   const soilStatus = getSoilStatus(currentSoil);
 
   return (
-    <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen w-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans transition-colors">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -246,40 +248,42 @@ function DashboardLayout() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center bg-slate-900 border-b border-slate-800">
+        <div className="flex items-center bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden ml-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
+            className="lg:hidden ml-4 p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
             title="Відкрити меню"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <Navbar isStreaming={isConnected} />
           </div>
         </div>
 
-        <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50 transition-colors">
           {activeTab === 'thresholds' ? (
             <Thresholds />
           ) : activeTab === 'greenhouses' ? (
             <Greenhouses />
           ) : activeTab === 'alerts' ? (
             <Alerts />
+          ) : activeTab === 'users' && user?.role === 'Admin' ? (
+            <UsersManagement />
           ) : !isLoading && greenhouses.length === 0 ? (
-            <div className="max-w-2xl mx-auto mt-16 p-8 bg-slate-900/60 border border-slate-800 rounded-3xl text-center space-y-4">
-              <div className="w-14 h-14 mx-auto bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
+            <div className="max-w-2xl mx-auto mt-16 p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-3xl text-center space-y-4 shadow-sm dark:shadow-none">
+              <div className="w-14 h-14 mx-auto bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center">
                 <Warehouse className="w-7 h-7" />
               </div>
-              <h2 className="text-xl font-bold text-slate-100">У вас ще немає підключених теплиць</h2>
-              <p className="text-sm text-slate-400 max-w-md mx-auto">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">У вас ще немає підключених теплиць</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                 Щоб розпочати IoT-моніторинг мікроклімату, додайте свій перший тепличний сектор або зверніться до адміністратора.
               </p>
               <div className="pt-2">
                 <button
                   onClick={() => setActiveTab('greenhouses')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Перейти до керування теплицями
@@ -289,10 +293,10 @@ function DashboardLayout() {
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-slate-100">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                   {selectedGreenhouse?.name || 'Завантаження об’єкта...'}
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Локація: {selectedGreenhouse?.location || 'Не вказана'}
                 </p>
               </div>
@@ -350,25 +354,25 @@ function DashboardLayout() {
                 </div>
 
                 <div className="flex flex-col gap-3 justify-between">
-                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-3 shadow-xs">
                     <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                      <Activity className="w-5 h-5 text-emerald-400" />
+                      <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400">Канал телеметрії</p>
-                      <p className="text-sm font-semibold text-emerald-400">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Канал телеметрії</p>
+                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                         {isConnected ? 'SignalR WebSocket активний' : 'Підключення...'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-3 shadow-xs">
                     <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                      <Cpu className="w-5 h-5 text-blue-400" />
+                      <Cpu className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400">Останнє оновлення</p>
-                      <p className="text-sm font-semibold text-blue-400">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Останнє оновлення</p>
+                      <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
                         {currentSnapshot?.timestamp
                           ? new Date(currentSnapshot.timestamp).toLocaleTimeString()
                           : 'Очікування даних...'}
@@ -376,13 +380,13 @@ function DashboardLayout() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-3 shadow-xs">
                     <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                      <ShieldCheck className="w-5 h-5 text-amber-400" />
+                      <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400">Криптографічний підпис</p>
-                      <p className="text-sm font-semibold text-amber-400 truncate max-w-[180px]">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Криптографічний підпис</p>
+                      <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 truncate max-w-[180px]">
                         {currentSnapshot?.signature
                           ? `${currentSnapshot.signature.slice(0, 16)}...`
                           : 'AES/HMAC Verified'}
