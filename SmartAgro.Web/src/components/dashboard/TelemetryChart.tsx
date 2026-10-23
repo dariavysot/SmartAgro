@@ -7,7 +7,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ReferenceLine,
 } from 'recharts';
 
 export interface ChartPoint {
@@ -24,9 +23,7 @@ interface TelemetryChartProps {
 }
 
 export const TelemetryChart: React.FC<TelemetryChartProps> = ({
-  data,
-  maxTempThreshold = 32,
-  minTempThreshold = 18,
+  data
 }) => {
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
@@ -52,10 +49,6 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
             <span className="text-slate-700 dark:text-slate-300">CO₂ (ppm)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 border-t border-dashed border-rose-500" />
-            <span className="text-slate-700 dark:text-slate-300">Межі норми</span>
           </div>
         </div>
       </div>

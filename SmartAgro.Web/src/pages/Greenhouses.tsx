@@ -16,7 +16,7 @@ import {
   Check,
   Filter,
   ArrowUpDown,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -87,7 +87,8 @@ export const Greenhouses: React.FC = () => {
   // Завантаження клієнтів для вибору власника (тільки Admin)
   useEffect(() => {
     if (isAdmin) {
-      apiClient.get<UserOption[]>('/Greenhouses/users-list')
+      apiClient
+        .get<UserOption[]>('/Greenhouses/users-list')
         .then((res) => {
           setUsersList(res.data);
           if (res.data.length > 0) {
@@ -104,7 +105,7 @@ export const Greenhouses: React.FC = () => {
   const processedGreenhouses = useMemo(() => {
     let result = [...greenhouses];
 
-    // 1. Пошук (за назвою або локацією)
+    // 1. Пошук
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -114,7 +115,7 @@ export const Greenhouses: React.FC = () => {
       );
     }
 
-    // 2. Фільтрація за конкретною локацією
+    // 2. Фільтрація за локацією
     if (selectedLocationFilter !== 'all') {
       result = result.filter((g) => g.location === selectedLocationFilter);
     }
@@ -287,10 +288,10 @@ export const Greenhouses: React.FC = () => {
       {/* Заголовок та кнопка створення */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-100">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
             {isAdmin ? 'Адміністрування теплиць' : 'Мої підключені теплиці'}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {isAdmin
               ? 'Конфігурація обладнання, підключення нових комплексів та закріплення за клієнтами'
               : 'Список об’єктів, змонтованих та налаштованих для вашого моніторингу'}
@@ -300,7 +301,7 @@ export const Greenhouses: React.FC = () => {
         {isAdmin && (
           <button
             onClick={openCreateModal}
-            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Змонтувати теплицю
@@ -309,23 +310,22 @@ export const Greenhouses: React.FC = () => {
       </div>
 
       {/* Панель фільтрації, пошуку та сортування */}
-      <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl shadow-sm space-y-3">
+      <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm space-y-3 transition-colors">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
-          
           {/* Поле пошуку */}
           <div className="lg:col-span-5 relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Пошук теплиці за назвою або сектором..."
-              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/80 transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-300 px-1"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -334,11 +334,11 @@ export const Greenhouses: React.FC = () => {
 
           {/* Фільтр за локацією */}
           <div className="lg:col-span-3 flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500 shrink-0" />
+            <Filter className="w-4 h-4 text-slate-400 shrink-0" />
             <select
               value={selectedLocationFilter}
               onChange={(e) => setSelectedLocationFilter(e.target.value)}
-              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/80 transition-colors cursor-pointer"
+              className="w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
             >
               <option value="all">Усі сектори ({greenhouses.length})</option>
               {availableLocations.map((loc) => (
@@ -351,11 +351,11 @@ export const Greenhouses: React.FC = () => {
 
           {/* Сортування */}
           <div className="lg:col-span-4 flex items-center gap-2">
-            <ArrowUpDown className="w-4 h-4 text-slate-500 shrink-0" />
+            <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortField)}
-              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/80 transition-colors cursor-pointer"
+              className="w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
             >
               <option value="name">Сортувати: За назвою</option>
               <option value="location">Сортувати: За сектором</option>
@@ -365,7 +365,7 @@ export const Greenhouses: React.FC = () => {
             <button
               onClick={() => setIsDescending((prev) => !prev)}
               title={isDescending ? 'За спаданням' : 'За зростанням'}
-              className="px-2.5 py-2 bg-slate-950/70 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs text-slate-300 transition-colors cursor-pointer shrink-0"
+              className="px-2.5 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/70 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-700 dark:text-slate-300 transition-colors cursor-pointer shrink-0 font-medium"
             >
               {isDescending ? '↓ Спад' : '↑ Зрост'}
             </button>
@@ -374,7 +374,7 @@ export const Greenhouses: React.FC = () => {
               <button
                 onClick={handleResetFilters}
                 title="Скинути параметри фільтрації"
-                className="p-2 bg-slate-950/70 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+                className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/70 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -383,13 +383,13 @@ export const Greenhouses: React.FC = () => {
         </div>
 
         {/* Інформаційний рядок під фільтром */}
-        <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1 border-t border-slate-800/40">
+        <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1 pt-1 border-t border-slate-100 dark:border-slate-800/60">
           <span>
-            Відображається: <strong className="text-emerald-400 font-semibold">{processedGreenhouses.length}</strong> з {greenhouses.length} комплексів
+            Відображається: <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">{processedGreenhouses.length}</strong> з {greenhouses.length} комплексів
           </span>
           {searchQuery && (
             <span className="truncate max-w-xs">
-              Запит: <span className="text-slate-300 font-mono">"{searchQuery}"</span>
+              Запит: <span className="text-slate-700 dark:text-slate-300 font-mono">"{searchQuery}"</span>
             </span>
           )}
         </div>
@@ -397,15 +397,15 @@ export const Greenhouses: React.FC = () => {
 
       {/* Якщо результатів пошуку 0 */}
       {processedGreenhouses.length === 0 ? (
-        <div className="p-12 text-center bg-slate-900/40 border border-slate-800/80 rounded-3xl space-y-3">
-          <Warehouse className="w-10 h-10 text-slate-600 mx-auto" />
-          <h3 className="text-sm font-semibold text-slate-300">Теплиць не знайдено</h3>
+        <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3 shadow-sm">
+          <Warehouse className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Теплиць не знайдено</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             Жоден тепличний комплекс не відповідає критеріям пошуку. Спробуйте змінити фільтри або пошуковий запит.
           </p>
           <button
             onClick={handleResetFilters}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-medium transition-colors cursor-pointer"
           >
             Скинути пошук
           </button>
@@ -421,8 +421,8 @@ export const Greenhouses: React.FC = () => {
                 onClick={() => setSelectedGreenhouseId(gh.id)}
                 className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer select-none hover:scale-[1.01] ${
                   isSelected
-                    ? 'bg-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/40'
-                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90'
+                    ? 'bg-white dark:bg-slate-900 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm'
                 }`}
               >
                 <div>
@@ -430,8 +430,8 @@ export const Greenhouses: React.FC = () => {
                     <div
                       className={`p-2.5 rounded-xl border transition-colors ${
                         isSelected
-                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                          : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                          ? 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-200 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-300'
+                          : 'bg-emerald-50/70 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                       }`}
                     >
                       <Warehouse className="w-5 h-5" />
@@ -443,21 +443,21 @@ export const Greenhouses: React.FC = () => {
                           <button
                             onClick={(e) => openEditModal(gh, e)}
                             title="Редагувати параметри"
-                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
                             onClick={(e) => openDeleteModal(gh, e)}
                             title="Демонтувати / Видалити"
-                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </>
                       )}
                       {isSelected && (
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium ml-1">
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold ml-1">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Активна
                         </span>
@@ -465,25 +465,25 @@ export const Greenhouses: React.FC = () => {
                     </div>
                   </div>
 
-                  <h3 className="text-base font-semibold text-slate-100">{gh.name}</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{gh.name}</h3>
 
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
                     <span>{gh.location || 'Локація не вказана'}</span>
                   </div>
 
                   {isAdmin && (gh.ownerEmail || gh.ownerUsername) && (
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 mt-3 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/10">
-                      <UserIcon className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 mt-3 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 font-medium">
+                      <UserIcon className="w-3.5 h-3.5 shrink-0" />
                       <span>Клієнт: {gh.ownerUsername || gh.ownerEmail}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500 font-mono">ID: {gh.id.slice(0, 8)}...</span>
+                <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">ID: {gh.id.slice(0, 8)}...</span>
                   {isSelected && (
-                    <span className="text-[11px] font-semibold text-emerald-400">
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                       Вибрано
                     </span>
                   )}
@@ -496,20 +496,20 @@ export const Greenhouses: React.FC = () => {
 
       {/* Модальне вікно створення */}
       {isAdmin && isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                 <Warehouse className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-100">Монтаж нового комплексу</h3>
-                <p className="text-xs text-slate-400">Реєстрація IoT-станції та закріплення за клієнтом</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Монтаж нового комплексу</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Реєстрація IoT-станції та закріплення за клієнтом</p>
               </div>
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2 text-rose-400 text-xs">
+              <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs font-medium">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -517,30 +517,30 @@ export const Greenhouses: React.FC = () => {
 
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Клієнт / Власник теплиці
                 </label>
 
                 {usersList.length === 0 ? (
-                  <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                  <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-2.5 rounded-xl">
                     Немає доступних зареєстрованих клієнтів для прив'язки.
                   </p>
                 ) : (
                   <div className="space-y-2">
                     <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
                         value={searchUserQuery}
                         onChange={(e) => setSearchUserQuery(e.target.value)}
                         placeholder="Пошук за ім'ям або email..."
-                        className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                        className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                       />
                     </div>
 
-                    <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-800/80 rounded-xl p-1.5 bg-slate-950/40">
+                    <div className="max-h-36 overflow-y-auto space-y-1 pr-1 border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 bg-slate-50/60 dark:bg-slate-950/40">
                       {filteredUsers.length === 0 ? (
-                        <p className="text-xs text-slate-500 text-center py-3">Клієнтів не знайдено</p>
+                        <p className="text-xs text-slate-400 text-center py-3">Клієнтів не знайдено</p>
                       ) : (
                         filteredUsers.map((u) => {
                           const isChosen = selectedUserId === u.id;
@@ -550,15 +550,15 @@ export const Greenhouses: React.FC = () => {
                               onClick={() => setSelectedUserId(u.id)}
                               className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all ${
                                 isChosen
-                                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
-                                  : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
+                                  ? 'bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-medium'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300 border border-transparent'
                               }`}
                             >
                               <div className="truncate mr-2">
-                                <span className="font-medium text-slate-200">{u.username}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{u.username}</span>
                                 <span className="text-[11px] text-slate-500 ml-1.5">({u.email})</span>
                               </div>
-                              {isChosen && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                              {isChosen && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                             </div>
                           );
                         })
@@ -569,7 +569,7 @@ export const Greenhouses: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Назва комплексу / Секції
                 </label>
                 <input
@@ -578,12 +578,12 @@ export const Greenhouses: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="наприклад: Головна Теплиця (Сектор A)"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Локація / Сектор
                 </label>
                 <input
@@ -591,7 +591,7 @@ export const Greenhouses: React.FC = () => {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="наприклад: Сектор А, Ряд 2"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -599,14 +599,14 @@ export const Greenhouses: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   Скасувати
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || usersList.length === 0 || !selectedUserId}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 disabled:opacity-50 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                 >
                   {isSubmitting ? 'Збереження...' : 'Зареєструвати об’єкт'}
                 </button>
@@ -618,20 +618,20 @@ export const Greenhouses: React.FC = () => {
 
       {/* Модальне вікно редагування */}
       {isAdmin && isEditModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                 <Pencil className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-100">Редагування комплексу</h3>
-                <p className="text-xs text-slate-400">Зміна назви, сектора або власника</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Редагування комплексу</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Зміна назви, сектора або власника</p>
               </div>
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2 text-rose-400 text-xs">
+              <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs font-medium">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -639,25 +639,25 @@ export const Greenhouses: React.FC = () => {
 
             <form onSubmit={handleUpdate} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Клієнт / Власник теплиці
                 </label>
 
                 <div className="space-y-2">
                   <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={editSearchUserQuery}
                       onChange={(e) => setEditSearchUserQuery(e.target.value)}
                       placeholder="Пошук за ім'ям або email..."
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                      className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                     />
                   </div>
 
-                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-800/80 rounded-xl p-1.5 bg-slate-950/40">
+                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 bg-slate-50/60 dark:bg-slate-950/40">
                     {editFilteredUsers.length === 0 ? (
-                      <p className="text-xs text-slate-500 text-center py-3">Клієнтів не знайдено</p>
+                      <p className="text-xs text-slate-400 text-center py-3">Клієнтів не знайдено</p>
                     ) : (
                       editFilteredUsers.map((u) => {
                         const isChosen = editUserId === u.id;
@@ -667,15 +667,15 @@ export const Greenhouses: React.FC = () => {
                             onClick={() => setEditUserId(u.id)}
                             className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all ${
                               isChosen
-                                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
-                                : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
+                                ? 'bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-medium'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300 border border-transparent'
                             }`}
                           >
                             <div className="truncate mr-2">
-                              <span className="font-medium text-slate-200">{u.username}</span>
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">{u.username}</span>
                               <span className="text-[11px] text-slate-500 ml-1.5">({u.email})</span>
                             </div>
-                            {isChosen && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                            {isChosen && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                           </div>
                         );
                       })
@@ -685,7 +685,7 @@ export const Greenhouses: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Назва комплексу / Секції
                 </label>
                 <input
@@ -694,12 +694,12 @@ export const Greenhouses: React.FC = () => {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="наприклад: Головна Теплиця"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Локація / Сектор
                 </label>
                 <input
@@ -707,7 +707,7 @@ export const Greenhouses: React.FC = () => {
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
                   placeholder="наприклад: Сектор А"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -715,14 +715,14 @@ export const Greenhouses: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   Скасувати
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !editUserId}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 disabled:opacity-50 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                 >
                   {isSubmitting ? 'Збереження...' : 'Зберегти зміни'}
                 </button>
@@ -734,20 +734,20 @@ export const Greenhouses: React.FC = () => {
 
       {/* Модальне вікно видалення */}
       {isAdmin && isDeleteModalOpen && deletingGreenhouse && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
+              <div className="p-2.5 bg-rose-50 dark:bg-rose-500/10 rounded-xl border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-100">Підтвердження демонтажу</h3>
-                <p className="text-xs text-slate-400">Видалення об'єкта та датчиків</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Підтвердження демонтажу</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Видалення об'єкта та датчиків</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Ви впевнені, що хочете видалити теплицю <strong className="text-rose-400">{deletingGreenhouse.name}</strong>? Усі пов'язані телеметричні дані та пороги тривог також будуть стерті.
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Ви впевнені, що хочете видалити теплицю <strong className="text-rose-600 dark:text-rose-400">{deletingGreenhouse.name}</strong>? Усі пов'язані телеметричні дані та пороги тривог також будуть стерті.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -758,7 +758,7 @@ export const Greenhouses: React.FC = () => {
                   setDeletingGreenhouse(null);
                 }}
                 disabled={isSubmitting}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
               >
                 Скасувати
               </button>
@@ -766,7 +766,7 @@ export const Greenhouses: React.FC = () => {
                 type="button"
                 onClick={handleDelete}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
               >
                 {isSubmitting ? 'Видалення...' : 'Так, видалити'}
               </button>
