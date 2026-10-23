@@ -1,3 +1,31 @@
+@import "tailwindcss";
+
+/* Пряма прив'язка темної теми для Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));
+
+/* Базові стилі для світлої та темної теми */
+:root {
+  --bg-primary: #f8fafc;        /* slate-50 */
+  --bg-surface: #ffffff;        /* white */
+  --border-color: #e2e8f0;      /* slate-200 */
+  --text-main: #0f172a;         /* slate-900 */
+  --text-muted: #64748b;        /* slate-500 */
+}
+
+html.dark {
+  --bg-primary: #020617;        /* slate-950 */
+  --bg-surface: #0f172a;        /* slate-900 */
+  --border-color: #1e293b;      /* slate-800 */
+  --text-main: #f8fafc;         /* slate-100 */
+  --text-muted: #94a3b8;        /* slate-400 */
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
