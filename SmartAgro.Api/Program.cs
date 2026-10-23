@@ -95,6 +95,7 @@ builder.Services.AddAuthentication(options =>
         RoleClaimType = ClaimTypes.Role
     };
 
+    // Передача JWT через query string для SignalR WebSockets
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -143,7 +144,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// 11. Налаштування Policy-Based Authorization (Вимога 10)
+// 11. Налаштування Policy-Based Authorization
 builder.Services.AddAuthorization(options =>
 {
     // Політика виключно для адміністратора
@@ -172,7 +173,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "SmartAgro API",
         Version = "v1",
-        Description = "API для інтелектуального моніторингу та управління теплицями (Lab 2 & Lab 3)"
+        Description = "API для інтелектуального моніторингу та прогнозування стану теплиці"
     });
 
     var securityScheme = new OpenApiSecurityScheme
@@ -186,6 +187,7 @@ builder.Services.AddSwaggerGen(options =>
     };
 
     options.AddSecurityDefinition("Bearer", securityScheme);
+
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -204,7 +206,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 13. Глобальна обробка винятків без витоку стек-трейсу клієнту (Вимога 21)
+// 13. Глобальна обробка винятків без витоку стек-трейсу клієнту
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -266,6 +268,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Мапінг SignalR Хабу
 app.MapHub<TelemetryHub>("/hubs/telemetry");
 
 app.Run();

@@ -36,7 +36,7 @@ public class AuthController(
         // 2. Хешування пароля за стандартом PBKDF2 з криптографічною сіллю
         var (hash, salt) = passwordHasher.HashPassword(dto.Password);
 
-        // 3. Захист від Privilege Escalation (Вимога 14):
+        // 3. Захист від Privilege Escalation:
         // Якщо це перший користувач у системі — призначаємо Admin, інакше звичайного User (або перевіряємо передану роль)
         bool anyAdminExists = await context.Users.AnyAsync(u => u.Role != null && u.Role.Name == UserRole.Admin, ct);
         UserRole targetRole = !anyAdminExists ? UserRole.Admin : UserRole.User;
@@ -154,7 +154,7 @@ public class AuthController(
     }
 
     /// <summary>
-    /// Ендпоінт, захищений політикою Policy-Based Authorization (Вимога 10).
+    /// Ендпоінт, захищений політикою Policy-Based Authorization.
     /// </summary>
     [Authorize(Policy = "RequireAdminOnly")]
     [HttpGet("admin-only")]

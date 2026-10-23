@@ -19,7 +19,7 @@ public sealed class TokenService(IOptions<JwtSettings> jwtOptions) : ITokenServi
         var expiration = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes);
 
         // Безпечно отримуємо текстову назву ролі
-        string roleName = user.Role?.Name.ToString() ?? "Operator";
+        string roleName = user.Role?.Name.ToString() ?? "User";
 
         // Формуємо твердження (Claims)
         var claims = new List<Claim>
