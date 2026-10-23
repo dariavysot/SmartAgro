@@ -3,14 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import type { AuthResponse } from '../types/auth';
-import { Sprout, Lock, Mail, AlertCircle, Shield, User, Sun, Moon } from 'lucide-react';
+import { Sprout, Lock, Mail, AlertCircle, User, Sun, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'User' | 'Admin'>('User');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,7 +26,7 @@ export const Register: React.FC = () => {
         username: username.trim() || email.split('@')[0],
         email: email.trim(),
         password,
-        role,
+        role: 'User', // Завжди призначаємо роль User для публічної реєстрації
       });
 
       toast.success('Обліковий запис успішно створено! Увійдіть за допомогою вашого email та пароля.');
@@ -65,7 +64,7 @@ export const Register: React.FC = () => {
             <Sprout className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-wide">Реєстрація</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Створення профілю SmartAgro</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Створення профілю оператора SmartAgro</p>
         </div>
 
         {error && (
@@ -119,21 +118,6 @@ export const Register: React.FC = () => {
                 placeholder="••••••••"
                 className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Роль доступу</label>
-            <div className="relative">
-              <Shield className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}
-                className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-              >
-                <option value="User">Користувач (Власник теплиці)</option>
-                <option value="Admin">Адміністратор (Повний доступ + Налаштування)</option>
-              </select>
             </div>
           </div>
 

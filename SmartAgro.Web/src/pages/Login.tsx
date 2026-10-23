@@ -115,11 +115,8 @@ export const Login: React.FC = () => {
           </button>
         </form>
 
-        <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">
-          Немає облікового запису?{' '}
-          <Link to="/register" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
-            Зареєструватися
-          </Link>
+        <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-6">
+          Внутрішня система SmartAgro. Для отримання або відновлення доступу зверніться до системного адміністратора господарства.
         </p>
       </div>
     </div>
