@@ -28,6 +28,7 @@ import {
   Cpu,
   Warehouse,
   Plus,
+  Menu,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -55,6 +56,7 @@ interface BackendAlert {
 
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
   const { telemetry: liveTelemetry, isConnected } = useTelemetryHub();
 
@@ -130,7 +132,7 @@ function DashboardLayout() {
 
     loadInitialData();
 
-    // Періодичне оновлення активних тривог кожні 15 секунд (щоб підхоплювати створені симулятором інциденти)
+    // Періодичне оновлення активних тривог кожні 15 секунд
     const interval = setInterval(fetchActiveAlerts, 15000);
 
     return () => {
@@ -178,7 +180,7 @@ function DashboardLayout() {
       return updated.slice(-20);
     });
 
-    // Якщо надійшла аномалія — оновлюємо список із сервера, щоб отримати реальний ID з БД
+    // Якщо надійшла аномалія — оновлюємо список із сервера
     if (liveTelemetry.temperature > 35 || liveTelemetry.co2Level > 1300) {
       fetchActiveAlerts();
     }
@@ -236,10 +238,27 @@ function DashboardLayout() {
 
   return (
     <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Navbar isStreaming={isConnected} />
+        <div className="flex items-center bg-slate-900 border-b border-slate-800">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden ml-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
+            title="Відкрити меню"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="flex-1">
+            <Navbar isStreaming={isConnected} />
+          </div>
+        </div>
 
         <main className="flex-1 p-6 overflow-y-auto bg-slate-950/50">
           {activeTab === 'thresholds' ? (
