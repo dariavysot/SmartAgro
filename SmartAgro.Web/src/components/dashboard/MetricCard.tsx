@@ -50,28 +50,34 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div
-      className={`bg-slate-900 border ${styles.border} rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all duration-300 hover:scale-[1.01]`}
+      className={`bg-slate-900 border ${styles.border} rounded-2xl p-3.5 sm:p-5 shadow-lg flex flex-col justify-between transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl border ${styles.iconBg}`}>
-            <Icon className="w-5 h-5" />
+      {/* Верхній рядок з адаптивним перенесенням на випадок вузької картки */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+          <div className={`p-2 sm:p-2.5 rounded-xl border shrink-0 ${styles.iconBg}`}>
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <span className="text-sm font-medium text-slate-300">{title}</span>
+          <span className="text-xs sm:text-sm font-medium text-slate-300 truncate" title={title}>
+            {title}
+          </span>
         </div>
+
+        {/* Бейдж статусу з shrink-0 та whitespace-nowrap */}
         <span
-          className={`px-2.5 py-0.5 rounded-full text-xs font-medium border flex items-center gap-1.5 ${styles.badge}`}
+          className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border flex items-center gap-1.5 shrink-0 whitespace-nowrap ${styles.badge}`}
         >
           <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${styles.pulse}`} />
           {statusText}
         </span>
       </div>
 
+      {/* Показники значення */}
       <div className="flex items-baseline gap-1.5 mt-1">
-        <span className="text-3xl font-extrabold text-white tracking-tight">
+        <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
           {typeof value === 'number' ? value.toFixed(1) : value}
         </span>
-        <span className="text-sm text-slate-400 font-medium">{unit}</span>
+        <span className="text-xs sm:text-sm text-slate-400 font-medium">{unit}</span>
       </div>
     </div>
   );
