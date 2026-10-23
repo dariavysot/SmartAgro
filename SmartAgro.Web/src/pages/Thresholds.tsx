@@ -52,9 +52,12 @@ export const Thresholds: React.FC = () => {
 
   const handleChange = (field: keyof GreenhouseThresholds, value: string) => {
     const num = parseFloat(value);
+    // Заборона від'ємних значень: якщо введено менше 0 або некоректне число, повертаємо 0
+    const nonNegativeValue = isNaN(num) ? 0 : Math.max(0, num);
+
     setThresholds((prev) => ({
       ...prev,
-      [field]: isNaN(num) ? 0 : num,
+      [field]: nonNegativeValue,
     }));
   };
 
@@ -62,6 +65,20 @@ export const Thresholds: React.FC = () => {
     e.preventDefault();
     if (!isAdmin) {
       toast.error('Лише користувачі з роллю Admin можуть змінювати параметри!');
+      return;
+    }
+
+    // Валідація логіки діапазонів
+    if (thresholds.minTemperature >= thresholds.maxTemperature) {
+      toast.error('Мінімальна температура повинна бути меншою за максимальну!');
+      return;
+    }
+    if (thresholds.minHumidity >= thresholds.maxHumidity) {
+      toast.error('Мінімальна вологість повітря повинна бути меншою за максимальну!');
+      return;
+    }
+    if (thresholds.minSoilMoisture >= thresholds.maxSoilMoisture) {
+      toast.error('Мінімальна вологість ґрунту повинна бути меншою за максимальну!');
       return;
     }
 
@@ -85,13 +102,14 @@ export const Thresholds: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Шапка сторінки */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Sliders className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white">Конфігурація меж теплиці</h2>
+            <Sliders className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Конфігурація меж теплиці</h2>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Критичні діапазони для спрацьовування тривог і автоматики мікроклімату
           </p>
         </div>
@@ -101,7 +119,7 @@ export const Thresholds: React.FC = () => {
             <button
               type="button"
               onClick={handleReset}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 rounded-xl transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-xl transition-colors shadow-xs cursor-pointer active:scale-95"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>За замовчуванням</span>
@@ -111,8 +129,8 @@ export const Thresholds: React.FC = () => {
       </div>
 
       {!isAdmin && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 text-amber-300 text-xs">
-          <ShieldAlert className="w-5 h-5 shrink-0 text-amber-400" />
+        <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-2xl flex items-center gap-3 text-amber-800 dark:text-amber-300 text-xs font-medium">
+          <ShieldAlert className="w-5 h-5 shrink-0 text-amber-500 dark:text-amber-400" />
           <span>
             Ви увійшли як <strong>Користувач</strong>. Форма відкрита в режимі перегляду. Для зміни меж увійдіть під обліковим записом адміністратора.
           </span>
@@ -122,142 +140,154 @@ export const Thresholds: React.FC = () => {
       <form onSubmit={handleSave} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Температура */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs dark:shadow-lg space-y-4 transition-colors">
+            <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
                 <Thermometer className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-white">Температурний режим (°C)</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Температурний режим (°C)</h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Мінімум (°C)</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Мінімум (°C)</label>
                 <input
                   type="number"
                   step="0.1"
+                  min="0"
                   disabled={!isAdmin || isSaving}
                   value={thresholds.minTemperature}
                   onChange={(e) => handleChange('minTemperature', e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Максимум (°C)</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Максимум (°C)</label>
                 <input
                   type="number"
                   step="0.1"
+                  min="0"
                   disabled={!isAdmin || isSaving}
                   value={thresholds.maxTemperature}
                   onChange={(e) => handleChange('maxTemperature', e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
             </div>
           </div>
 
           {/* Вологість повітря */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-              <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs dark:shadow-lg space-y-4 transition-colors">
+            <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="p-2 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded-lg border border-cyan-100 dark:border-cyan-500/20">
                 <Droplets className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-white">Вологість повітря (%)</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Вологість повітря (%)</h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Мінімум (%)</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Мінімум (%)</label>
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
+                  max="100"
                   disabled={!isAdmin || isSaving}
                   value={thresholds.minHumidity}
                   onChange={(e) => handleChange('minHumidity', e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Максимум (%)</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Максимум (%)</label>
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
+                  max="100"
                   disabled={!isAdmin || isSaving}
                   value={thresholds.maxHumidity}
                   onChange={(e) => handleChange('maxHumidity', e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
             </div>
           </div>
 
           {/* Концентрація CO2 */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-              <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs dark:shadow-lg space-y-4 transition-colors">
+            <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="p-2 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-500/20">
                 <Cloud className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-white">Концентрація CO₂ (ppm)</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Концентрація CO₂ (ppm)</h3>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Граничний максимум (ppm)</label>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Граничний максимум (ppm)</label>
               <input
                 type="number"
                 step="10"
+                min="0"
                 disabled={!isAdmin || isSaving}
                 value={thresholds.maxCo2Level}
                 onChange={(e) => handleChange('maxCo2Level', e.target.value)}
-                className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Вологість ґрунту */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-              <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs dark:shadow-lg space-y-4 transition-colors">
+            <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg border border-amber-100 dark:border-amber-500/20">
                 <Layers className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-white">Вологість ґрунту (%)</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Вологість ґрунту (%)</h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Мінімум (%)</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Мінімум (%)</label>
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
+                  max="100"
                   disabled={!isAdmin || isSaving}
                   value={thresholds.minSoilMoisture}
                   onChange={(e) => handleChange('minSoilMoisture', e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Максимум (%)</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Максимум (%)</label>
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
+                  max="100"
                   disabled={!isAdmin || isSaving}
                   value={thresholds.maxSoilMoisture}
                   onChange={(e) => handleChange('maxSoilMoisture', e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 disabled:opacity-60 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
             </div>
           </div>
         </div>
 
+        {/* Кнопка збереження */}
         {isAdmin ? (
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:opacity-50 text-slate-950 font-semibold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 active:bg-emerald-700 disabled:opacity-50 text-white dark:text-slate-950 font-semibold text-sm rounded-xl transition-all shadow-sm cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Збереження...' : 'Зберегти конфігурацію'}</span>
             </button>
           </div>
         ) : (
-          <div className="flex justify-end items-center gap-2 text-slate-500 text-xs">
+          <div className="flex justify-end items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium">
             <Lock className="w-4 h-4" />
             <span>Збереження заблоковано для ролі Користувач</span>
           </div>
