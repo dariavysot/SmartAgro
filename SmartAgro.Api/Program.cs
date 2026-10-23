@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
@@ -64,14 +66,14 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // Необхідно для SignalR WebSocket з'єднання
+              .AllowCredentials();
     });
 });
 
-// 9. Фоновий IoT-симулятор (IHostedService / BackgroundService)
+// 9. Фоновий IoT-симулятор
 builder.Services.AddHostedService<GreenhouseSimulatorService>();
 
-// 10. Налаштування JWT Bearer автентифікації
+// 10. Налаштування JWT Bearer автентифікації та обробки 401/403 статусів
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -88,10 +90,11 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero,
+        NameClaimType = ClaimTypes.NameIdentifier,
+        RoleClaimType = ClaimTypes.Role
     };
 
-    // Передача JWT через query string для SignalR WebSockets
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -103,11 +106,57 @@ builder.Services.AddAuthentication(options =>
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
+        },
+        OnChallenge = async context =>
+        {
+            // Перехоплення 401 Unauthorized для формування стандартизованої відповіді
+            context.HandleResponse();
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/problem+json";
+
+            var errorResponse = new
+            {
+                type = "https://tools.ietf.org/html/rfc7235#section-3.1",
+                title = "Неавторизований доступ",
+                status = 401,
+                detail = "Для доступу до ресурсу потрібен дійсний JWT Bearer токен."
+            };
+
+            await context.Response.WriteAsJsonAsync(errorResponse);
+        },
+        OnForbidden = async context =>
+        {
+            // Перехоплення 403 Forbidden при нестачі прав/ролей
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/problem+json";
+
+            var errorResponse = new
+            {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
+                title = "Доступ заборонено",
+                status = 403,
+                detail = "У вас недостатньо прав або ваша роль не відповідає вимогам ресурсу."
+            };
+
+            await context.Response.WriteAsJsonAsync(errorResponse);
         }
     };
 });
 
-builder.Services.AddAuthorization();
+// 11. Налаштування Policy-Based Authorization (Вимога 10)
+builder.Services.AddAuthorization(options =>
+{
+    // Політика виключно для адміністратора
+    options.AddPolicy("RequireAdminOnly", policy =>
+        policy.RequireRole("Admin"));
+
+    // Політика керування об'єктами: адміністратор або користувач із правом CanManageGreenhouses
+    options.AddPolicy("CanManageGreenhouses", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.IsInRole("Admin") ||
+            ctx.User.HasClaim(c => c.Type == "Permission" && c.Value == "CanManageGreenhouses")));
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -116,14 +165,14 @@ builder.Services.AddControllers()
 
 builder.Services.AddEndpointsApiExplorer();
 
-// 11. Налаштування Swagger з підтримкою Bearer-токена
+// 12. Swagger UI з підтримкою Bearer
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "SmartAgro API",
         Version = "v1",
-        Description = "API для інтелектуального моніторингу та прогнозування стану теплиці"
+        Description = "API для інтелектуального моніторингу та управління теплицями (Lab 2 & Lab 3)"
     });
 
     var securityScheme = new OpenApiSecurityScheme
@@ -137,7 +186,6 @@ builder.Services.AddSwaggerGen(options =>
     };
 
     options.AddSecurityDefinition("Bearer", securityScheme);
-
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -156,7 +204,35 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 12. Автоматична перевірка та створення схеми БД для обраного провайдера
+// 13. Глобальна обробка винятків без витоку стек-трейсу клієнту (Вимога 21)
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+
+        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+        if (exceptionHandlerPathFeature?.Error != null)
+        {
+            logger.LogError(exceptionHandlerPathFeature.Error, "Неперехоплена помилка сервера на маршруті {Path}", context.Request.Path);
+        }
+
+        var problemDetails = new
+        {
+            type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
+            title = "Внутрішня помилка сервера",
+            status = 500,
+            detail = "Виникла непередбачена помилка. Спробуйте пізніше або зверніться до адміністратора."
+        };
+
+        await context.Response.WriteAsJsonAsync(problemDetails);
+    });
+});
+
+// Ініціалізація схеми БД
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -184,15 +260,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-// Важливо: UseCors викликається ПЕРЕД UseAuthentication та UseAuthorization
 app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-// Мапінг SignalR Хабу
 app.MapHub<TelemetryHub>("/hubs/telemetry");
 
 app.Run();

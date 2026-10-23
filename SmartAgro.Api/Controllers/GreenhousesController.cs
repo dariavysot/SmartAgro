@@ -10,7 +10,7 @@ namespace SmartAgro.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize] // Загальний доступ вимагає валідного JWT-токена
 public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 {
     private Guid GetCurrentUserId()
@@ -26,6 +26,7 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetGreenhouses(
         [FromQuery] string? search,
         [FromQuery] string? location,
@@ -41,7 +42,7 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
             .Include(g => g.User)
             .AsQueryable();
 
-        // Якщо не Admin — дозволено бачити тільки власні закріплені теплиці
+        // Ізоляція ресурсів: звичайний користувач бачить тільки свої теплиці
         if (!isAdmin)
         {
             query = query.Where(g => g.UserId == userId);
@@ -61,7 +62,7 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
             query = query.Where(g => g.Location == location.Trim());
         }
 
-        // Сортування
+        // Динамічне сортування
         query = (sortBy?.ToLower()) switch
         {
             "location" => isDescending ? query.OrderByDescending(g => g.Location) : query.OrderBy(g => g.Location),
@@ -90,7 +91,10 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     /// Псевдонім для зворотної сумісності з попередніми версіями клієнта
     /// </summary>
     [HttpGet("all")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "RequireAdminOnly")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetAllGreenhousesLegacy(CancellationToken ct) =>
         GetGreenhouses(null, null, "name", false, ct);
 
@@ -99,15 +103,19 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
     /// Псевдонім для отримання списку тільки власних теплиць
     /// </summary>
     [HttpGet("my")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public Task<IActionResult> GetMyGreenhousesLegacy(CancellationToken ct) =>
         GetGreenhouses(null, null, "name", false, ct);
 
     /// <summary>
     /// GET /api/greenhouses/{id}
-    /// Отримати детальну інформацію про конкретну теплицю за її Id
+    /// Отримати детальну інформацію про теплицю (захист від доступу до чужих об'єктів -> 403 Forbidden)
     /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetGreenhouseById(Guid id, CancellationToken ct)
     {
@@ -133,6 +141,7 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
         if (greenhouse == null)
             return NotFound(new { message = $"Теплицю з Id '{id}' не знайдено." });
 
+        // Перевірка прав власності: користувач не може переглядати чужу теплицю
         if (!isAdmin && greenhouse.OwnerId != userId)
             return Forbid();
 
@@ -141,12 +150,14 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 
     /// <summary>
     /// POST /api/greenhouses
-    /// Створити новий тепличний сектор (Тільки Admin). Повертає 201 Created з заголовком Location.
+    /// Створити новий тепличний сектор (Доступ за політикою RequireAdminOnly)
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "RequireAdminOnly")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateGreenhouse([FromBody] CreateGreenhouseDto dto, CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -157,9 +168,7 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
             .FirstOrDefaultAsync(u => u.Id == dto.UserId, ct);
 
         if (targetUser == null)
-        {
             return BadRequest(new { message = "Вказаного користувача-власника не знайдено в системі." });
-        }
 
         var greenhouse = new Greenhouse
         {
@@ -201,12 +210,14 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 
     /// <summary>
     /// PUT /api/greenhouses/{id}
-    /// Оновити назву, сектор або власника теплиці (Тільки Admin)
+    /// Оновити назву, сектор або власника теплиці (Доступ за політикою RequireAdminOnly)
     /// </summary>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "RequireAdminOnly")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateGreenhouse(Guid id, [FromBody] UpdateGreenhouseDto dto, CancellationToken ct)
     {
@@ -245,11 +256,13 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 
     /// <summary>
     /// DELETE /api/greenhouses/{id}
-    /// Демонтувати теплицю та всі пов'язані ресурси (Тільки Admin). Повертає 204 No Content.
+    /// Демонтувати теплицю та всі пов'язані ресурси (Доступ за політикою RequireAdminOnly)
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "RequireAdminOnly")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteGreenhouse(Guid id, CancellationToken ct)
     {
@@ -276,10 +289,13 @@ public class GreenhousesController(AppDbContext dbContext) : ControllerBase
 
     /// <summary>
     /// GET /api/greenhouses/users-list
-    /// Отримати список клієнтів для вибору власника теплиці у випадаючому списку
+    /// Отримати список клієнтів (Доступ за політикою RequireAdminOnly)
     /// </summary>
     [HttpGet("users-list")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "RequireAdminOnly")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUsersForAssignment(CancellationToken ct)
     {
         var users = await dbContext.Users
