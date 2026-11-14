@@ -33,12 +33,48 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
 
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
+  const getActionableRecommendation = (score: number) => {
+    if (score < 40) {
+      return 'Розвиток патогенів та фізіологічний стрес малоймовірні';
+    }
+
+    const entries = [
+      { key: 'fungal' as const, value: factors.fungal },
+      { key: 'vpd' as const, value: factors.vpd },
+      { key: 'co2' as const, value: factors.co2 },
+      { key: 'hypoxia' as const, value: factors.hypoxia },
+    ];
+    const topFactor = entries.reduce((max, curr) => (curr.value > max.value ? curr : max), entries[0]);
+    const isHigh = score >= 70;
+
+    switch (topFactor.key) {
+      case 'fungal':
+        return isHigh
+          ? 'Критичний ризик фітофторозу: увімкніть активну вентиляцію та осушення повітря'
+          : 'Підвищена вологість: рекомендовано провітрювання для запобігання росі';
+      case 'vpd':
+        return isHigh
+          ? 'Сильний стрес випаровування: увімкніть зволоження або притініть теплицю'
+          : 'Порушено баланс вологи та тепла: перевірте роботу зволожувачів';
+      case 'co2':
+        return isHigh
+          ? 'Критичний дисбаланс CO₂: терміново відкрийте фрамуги або увімкніть витяжку'
+          : 'Відхилення рівня CO₂: перевірте повітрообмін у секторі';
+      case 'hypoxia':
+        return isHigh
+          ? 'Високий ризик кисневого голодування коренів: призупиніть полив та перевірте дренаж'
+          : 'Ґрунт перезволожений: зменште інтенсивність наступного поливу';
+    }
+  };
+
   const getRiskDetails = (score: number) => {
+    const recommendation = getActionableRecommendation(score);
+
     if (score >= 70) {
       return {
         color: '#f43f5e',
         level: 'Високий ризик',
-        recommendation: 'Увімкнути активну вентиляцію та осушення повітря',
+        recommendation,
         icon: ShieldAlert,
         badgeBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 dark:border-rose-500/30',
         alertBoxBg: 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/40 text-rose-800 dark:text-rose-300',
@@ -48,7 +84,7 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
       return {
         color: '#f59e0b',
         level: 'Помірний ризик',
-        recommendation: 'Слідкувати за конденсатом і балансом VPD',
+        recommendation,
         icon: ShieldAlert,
         badgeBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 dark:border-amber-500/30',
         alertBoxBg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300',
@@ -57,7 +93,7 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
     return {
       color: '#10b981',
       level: 'Оптимальний стан',
-      recommendation: 'Розвиток патогенів та фізіологічний стрес малоймовірні',
+      recommendation,
       icon: CheckCircle2,
       badgeBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 dark:border-emerald-500/30',
       alertBoxBg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300',
@@ -97,14 +133,14 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
           </span>
         </div>
 
-        {/* Спідометр інтегрального ризику */}
+        {/* Спідометр інтегрального ризику (зміщено нижче) */}
         <div className="relative h-40 flex items-center justify-center my-1">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={chartData}
                 cx="50%"
-                cy="50%"
+                cy="65%"
                 startAngle={180}
                 endAngle={0}
                 innerRadius={60}
@@ -118,7 +154,7 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
             </PieChart>
           </ResponsiveContainer>
 
-          <div className="absolute top-[52%] flex flex-col items-center">
+          <div className="absolute top-[60%] flex flex-col items-center">
             <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {normalizedRisk.toFixed(0)}%
             </span>
@@ -152,7 +188,7 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                 <Wind className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-                Стрес транспірації (VPD)
+                Баланс вологи та тепла (VPD)
               </span>
               <span className="font-semibold text-slate-800 dark:text-slate-200">{factors.vpd.toFixed(0)}%</span>
             </div>
@@ -200,7 +236,7 @@ export const DiseaseRiskWidget: React.FC<DiseaseRiskWidgetProps> = ({ riskScore,
         </div>
       </div>
 
-      {/* Рекомендація знизу: адаптивний пастельний бейдж під статус */}
+      {/* Рекомендація знизу: адаптивний пастельний бейдж під домінуючий фактор ризику */}
       <div className={`p-3 rounded-xl border flex items-start gap-2.5 mt-4 transition-colors ${risk.alertBoxBg}`}>
         <Icon className="w-4 h-4 mt-0.5 shrink-0" />
         <p className="text-xs font-medium">{risk.recommendation}</p>
