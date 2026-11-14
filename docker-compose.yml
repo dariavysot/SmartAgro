@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: smartagro-db
+    restart: always
+    environment:
+      POSTGRES_DB: smartagro_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: SecretPassword123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartagro-api
+    restart: always
+    ports:
+      - "5240:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__PostgreSql=Host=db;Port=5432;Database=smartagro_db;Username=postgres;Password=SecretPassword123!
+
+      - CryptoSettings__AesKeyBase64=k7P3mQ2x1A4bC6dE8fG0hI2jK4lM6nO8pQ0rStUvWxY=
+      - CryptoSettings__HmacKeyBase64=dGhpcy1pcy1hLXNlY3VyZS02NC1ieXRlLWtleS1mb3ItaG1hYy1zaGEyNTYtc2lnbmluZy1zbWFydGFncm8tcHJvamVjdC1rZXk=
+
+      - JwtSettings__SecretKey=SmartAgro_Super_Secret_Key_For_Jwt_Security_2026!#
+      - JwtSettings__Issuer=SmartAgro.Api
+      - JwtSettings__Audience=SmartAgro.Client
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
+    name: smartagro_pgdata
