@@ -29,3 +29,8 @@ secrets.json
 *.db
 *.db-shm
 *.db-wal
+
+# Local dumps & env
+project_dump.txt
+*.dump
+SmartAgro.Web/.env
