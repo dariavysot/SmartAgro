@@ -19,6 +19,7 @@ import { AlertsPanel, type AlertItem } from './components/dashboard/AlertsPanel'
 import { useTelemetryHub } from './hooks/useTelemetryHub';
 import { apiClient } from './api/client';
 import type { MetricStatus, RiskBreakdown } from './types/telemetry';
+import type { GreenhouseThresholds } from './types/threshold';
 import {
   Thermometer,
   Droplets,
@@ -54,6 +55,16 @@ interface BackendAlert {
   createdAt: string;
 }
 
+const defaultThresholds: GreenhouseThresholds = {
+  minTemperature: 18.0,
+  maxTemperature: 28.0,
+  minHumidity: 50.0,
+  maxHumidity: 80.0,
+  maxCo2Level: 1000.0,
+  minSoilMoisture: 45.0,
+  maxSoilMoisture: 75.0,
+};
+
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -64,6 +75,7 @@ function DashboardLayout() {
   const [history, setHistory] = useState<ChartPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [currentSnapshot, setCurrentSnapshot] = useState<TelemetryRecord | null>(null);
+  const [thresholds, setThresholds] = useState<GreenhouseThresholds>(defaultThresholds);
 
   // 1. Завантаження виключно активних сповіщень із бекенду
   const fetchActiveAlerts = useCallback(async () => {
@@ -84,13 +96,14 @@ function DashboardLayout() {
     }
   }, [selectedGreenhouse?.id]);
 
-  // 2. Початкове завантаження телеметрії та активних тривог
+  // 2. Початкове завантаження телеметрії, порогів та активних тривог
   useEffect(() => {
     fetchActiveAlerts();
 
     if (!selectedGreenhouse?.id) {
       setHistory([]);
       setCurrentSnapshot(null);
+      setThresholds(defaultThresholds);
       return;
     }
 
@@ -98,9 +111,10 @@ function DashboardLayout() {
 
     const loadInitialData = async () => {
       try {
-        const [latestRes, historyRes] = await Promise.allSettled([
+        const [latestRes, historyRes, thresholdsRes] = await Promise.allSettled([
           apiClient.get<TelemetryRecord>(`/Telemetry/latest/${selectedGreenhouse.id}`),
           apiClient.get<TelemetryRecord[]>(`/Telemetry/history/${selectedGreenhouse.id}?limit=20`),
+          apiClient.get<GreenhouseThresholds>(`/Thresholds/${selectedGreenhouse.id}`),
         ]);
 
         if (!isMounted) return;
@@ -126,6 +140,21 @@ function DashboardLayout() {
         } else {
           setHistory([]);
         }
+
+        if (thresholdsRes.status === 'fulfilled' && thresholdsRes.value.data) {
+          const t = thresholdsRes.value.data;
+          setThresholds({
+            minTemperature: t.minTemperature ?? defaultThresholds.minTemperature,
+            maxTemperature: t.maxTemperature ?? defaultThresholds.maxTemperature,
+            minHumidity: t.minHumidity ?? defaultThresholds.minHumidity,
+            maxHumidity: t.maxHumidity ?? defaultThresholds.maxHumidity,
+            maxCo2Level: t.maxCo2Level ?? defaultThresholds.maxCo2Level,
+            minSoilMoisture: t.minSoilMoisture ?? defaultThresholds.minSoilMoisture,
+            maxSoilMoisture: t.maxSoilMoisture ?? defaultThresholds.maxSoilMoisture,
+          });
+        } else {
+          setThresholds(defaultThresholds);
+        }
       } catch (err) {
         console.error('Не вдалося завантажити початкову телеметрію:', err);
       }
@@ -140,7 +169,7 @@ function DashboardLayout() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [selectedGreenhouse?.id, fetchActiveAlerts]);
+  }, [selectedGreenhouse?.id, fetchActiveAlerts, activeTab]);
 
   // 3. Обробка живого потоку SignalR
   useEffect(() => {
@@ -182,11 +211,17 @@ function DashboardLayout() {
       return updated.slice(-20);
     });
 
-    // Якщо надійшла аномалія — оновлюємо список із сервера
-    if (liveTelemetry.temperature > 35 || liveTelemetry.co2Level > 1300) {
+    // Якщо показник вийшов за налаштовані межі — оновлюємо список тривог із сервера
+    if (
+      liveTelemetry.temperature > thresholds.maxTemperature ||
+      liveTelemetry.temperature < thresholds.minTemperature ||
+      liveTelemetry.humidity > thresholds.maxHumidity ||
+      liveTelemetry.humidity < thresholds.minHumidity ||
+      liveTelemetry.co2Level > thresholds.maxCo2Level
+    ) {
       fetchActiveAlerts();
     }
-  }, [liveTelemetry, selectedGreenhouse, fetchActiveAlerts]);
+  }, [liveTelemetry, selectedGreenhouse, thresholds, fetchActiveAlerts]);
 
   // 4. Позначення тривоги як вирішеної через API
   const handleDismissAlert = async (id: number) => {
@@ -221,31 +256,26 @@ function DashboardLayout() {
     }
   };
 
-  const getTempStatus = (temp?: number): { status: MetricStatus; text: string } => {
-    if (temp === undefined) return { status: 'normal', text: 'Очікування' };
-    if (temp > 32 || temp < 15) return { status: 'critical', text: 'Критично' };
-    if (temp > 28 || temp < 18) return { status: 'warning', text: 'Увага' };
-    return { status: 'normal', text: 'Норма' };
-  };
+  // Динамічна оцінка статусу відносно налаштованих меж теплиці
+  const evaluateRangeStatus = (
+    val: number | undefined,
+    min: number,
+    max: number
+  ): { status: MetricStatus; text: string } => {
+    if (val === undefined) return { status: 'normal', text: 'Очікування' };
+    if (val > max || val < min) return { status: 'critical', text: 'Критично' };
 
-  const getHumidityStatus = (hum?: number): { status: MetricStatus; text: string } => {
-    if (hum === undefined) return { status: 'normal', text: 'Очікування' };
-    if (hum > 85 || hum < 40) return { status: 'critical', text: 'Критично' };
-    if (hum > 75 || hum < 50) return { status: 'warning', text: 'Увага' };
+    const warningBuffer = Math.max((max - min) * 0.15, 0);
+    if (val >= max - warningBuffer || val <= min + warningBuffer) {
+      return { status: 'warning', text: 'Увага' };
+    }
     return { status: 'normal', text: 'Норма' };
   };
 
   const getCo2Status = (co2?: number): { status: MetricStatus; text: string } => {
     if (co2 === undefined) return { status: 'normal', text: 'Очікування' };
-    if (co2 > 1200) return { status: 'critical', text: 'Критично' };
-    if (co2 > 950) return { status: 'warning', text: 'Увага' };
-    return { status: 'normal', text: 'Норма' };
-  };
-
-  const getSoilStatus = (soil?: number): { status: MetricStatus; text: string } => {
-    if (soil === undefined) return { status: 'normal', text: 'Очікування' };
-    if (soil < 40 || soil > 85) return { status: 'critical', text: 'Критично' };
-    if (soil < 50 || soil > 75) return { status: 'warning', text: 'Увага' };
+    if (co2 > thresholds.maxCo2Level) return { status: 'critical', text: 'Критично' };
+    if (co2 >= thresholds.maxCo2Level * 0.85) return { status: 'warning', text: 'Увага' };
     return { status: 'normal', text: 'Норма' };
   };
 
@@ -255,10 +285,10 @@ function DashboardLayout() {
   const currentSoil = currentSnapshot?.soilMoisture ?? (currentSnapshot ? 62.0 : undefined);
   const currentRisk = currentSnapshot?.diseaseRiskScore;
 
-  const tempStatus = getTempStatus(currentTemp);
-  const humStatus = getHumidityStatus(currentHumidity);
+  const tempStatus = evaluateRangeStatus(currentTemp, thresholds.minTemperature, thresholds.maxTemperature);
+  const humStatus = evaluateRangeStatus(currentHumidity, thresholds.minHumidity, thresholds.maxHumidity);
   const co2Status = getCo2Status(currentCo2);
-  const soilStatus = getSoilStatus(currentSoil);
+  const soilStatus = evaluateRangeStatus(currentSoil, thresholds.minSoilMoisture, thresholds.maxSoilMoisture);
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans transition-colors">
