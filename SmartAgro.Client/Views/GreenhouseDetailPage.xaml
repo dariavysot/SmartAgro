@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SmartAgro.Client.ViewModels"
+             x:Class="SmartAgro.Client.Views.GreenhouseDetailPage"
+             x:DataType="vm:GreenhouseDetailViewModel"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="16" Padding="20">
+
+            <Label Text="Параметри комплексу"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   Margin="0,0,0,10" />
+
+            <Label Text="Назва теплиці:"
+                   FontSize="14"
+                   TextColor="Gray" />
+            <Border StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    Padding="12,0">
+                <Entry Text="{Binding Name}"
+                       Placeholder="Введіть назву теплиці" />
+            </Border>
+
+            <Label Text="Локація / Сектор:"
+                   FontSize="14"
+                   TextColor="Gray"
+                   Margin="0,10,0,0" />
+            <Border StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    Padding="12,0">
+                <Entry Text="{Binding Location}"
+                       Placeholder="Наприклад: Сектор А, ряд 3" />
+            </Border>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{StaticResource Primary}"
+                               Margin="0,15,0,0" />
+
+            <Button Text="Зберегти"
+                    Command="{Binding SaveCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    HeightRequest="50"
+                    CornerRadius="8"
+                    Margin="0,20,0,0" />
+
+            <!-- Кнопка видалення для адміністратора -->
+            <Button Text="🗑 Видалити теплицю"
+                    Command="{Binding DeleteCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    IsVisible="{Binding CanDelete}"
+                    BackgroundColor="#D32F2F"
+                    TextColor="White"
+                    HeightRequest="50"
+                    CornerRadius="8" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

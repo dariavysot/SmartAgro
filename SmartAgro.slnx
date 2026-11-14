@@ -1,5 +1,8 @@
 <Solution>
   <Project Path="SmartAgro.Api/SmartAgro.Api.csproj" />
+  <Project Path="SmartAgro.Client/SmartAgro.Client.csproj" Id="1031c798-f414-4939-beb6-1898f8d29aeb">
+    <Deploy Solution="Debug|*" />
+  </Project>
   <Project Path="SmartAgro.Core/SmartAgro.Core.csproj" />
   <Project Path="SmartAgro.Tests/SmartAgro.Tests.csproj" />
 </Solution>

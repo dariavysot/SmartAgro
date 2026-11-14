@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SmartAgro.Client.ViewModels"
+             xmlns:m="clr-namespace:SmartAgro.Client.Models"
+             x:Class="SmartAgro.Client.Views.GreenhousesPage"
+             x:DataType="vm:GreenhousesViewModel"
+             x:Name="ThisPage"
+             Title="{Binding Title}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="➕ Додати" 
+                 Command="{Binding CreateNewCommand}" 
+                 Order="Primary" 
+                 Priority="0" />
+
+        <ToolbarItem Text="🚪 Вийти" 
+                 Command="{Binding LogoutCommand}" 
+                 Order="Primary" 
+                 Priority="1" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,*">
+        <ActivityIndicator Grid.Row="0"
+                           IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           Color="{StaticResource Primary}"
+                           Margin="10" />
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding LoadGreenhousesCommand}">
+            <CollectionView ItemsSource="{Binding Greenhouses}">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Padding="20">
+                        <Label Text="Теплиць не знайдено." FontSize="18" HorizontalOptions="Center" />
+                        <Button Text="Оновити список" Command="{Binding LoadGreenhousesCommand}" Margin="0,10,0,0" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="m:GreenhouseItem">
+                        <SwipeView>
+                            <SwipeView.RightItems>
+                                <SwipeItems>
+                                    <SwipeItem Text="Видалити"
+                                               BackgroundColor="Red"
+                                               Command="{Binding BindingContext.DeleteCommand, Source={x:Reference ThisPage}}"
+                                               CommandParameter="{Binding .}" />
+                                </SwipeItems>
+                            </SwipeView.RightItems>
+
+                            <Border Margin="10,6" Padding="15" StrokeThickness="1" StrokeShape="RoundRectangle 10">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer 
+                                        Command="{Binding BindingContext.GoToDetailCommand, Source={x:Reference ThisPage}}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="4">
+                                        <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold" />
+                                        <Label Text="{Binding Location, StringFormat='Локація: {0}'}" TextColor="Gray" FontSize="14" />
+                                        <Label Text="{Binding ReadingsCount, StringFormat='Замірів сенсорів: {0}'}" FontSize="12" TextColor="DimGray" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="➔" FontSize="20" VerticalOptions="Center" TextColor="Gray" />
+                                </Grid>
+                            </Border>
+                        </SwipeView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>
