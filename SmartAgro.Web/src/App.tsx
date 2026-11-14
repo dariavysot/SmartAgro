@@ -318,7 +318,7 @@ function DashboardLayout() {
           {activeTab === 'thresholds' ? (
             <Thresholds />
           ) : activeTab === 'greenhouses' ? (
-            <Greenhouses />
+            <Greenhouses setActiveTab={setActiveTab} />
           ) : activeTab === 'alerts' ? (
             <Alerts />
           ) : activeTab === 'users' && user?.role === 'Admin' ? (
@@ -348,7 +348,7 @@ function DashboardLayout() {
             </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
-              {/* Заголовок теплиці та  плашка  */}
+              {/* Заголовок теплиці та плашка останнього виміру */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
@@ -359,7 +359,7 @@ function DashboardLayout() {
                   </p>
                 </div>
 
-                <div className="inline-flex items-center gap-3.5 px-5 py-2.5 sm:min-w-[190px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs self-start sm:self-auto">
+                <div className="inline-flex items-center gap-3.5 px-5 py-2.5 sm:min-w-[240px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs self-start sm:self-auto">
                   <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
                     <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
                   </div>

@@ -64,7 +64,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
             ) : (
               <>
                 <CheckCheck className="w-3.5 h-3.5" />
-                <span>Вирішити всі ({alerts.length})</span>
+                <span>Вирішено всі ({alerts.length})</span>
               </>
             )}
           </button>
@@ -128,7 +128,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
                       <span>Збереження...</span>
                     </>
                   ) : (
-                    'Вирішити'
+                    'Вирішено'
                   )}
                 </button>
               </div>

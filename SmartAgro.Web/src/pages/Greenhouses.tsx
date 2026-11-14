@@ -34,7 +34,11 @@ interface UserOption {
 
 type SortField = 'name' | 'location' | 'readings';
 
-export const Greenhouses: React.FC = () => {
+interface GreenhousesProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+export const Greenhouses: React.FC<GreenhousesProps> = ({ setActiveTab }) => {
   const { greenhouses, selectedGreenhouse, setSelectedGreenhouseId, refreshGreenhouses } = useGreenhouse();
   const { user } = useAuth();
 
@@ -192,6 +196,14 @@ export const Greenhouses: React.FC = () => {
     e.stopPropagation();
     setDeletingGreenhouse({ id: gh.id, name: gh.name });
     setIsDeleteModalOpen(true);
+  };
+
+  // Клік по картці теплиці: вибір + перехід на дашборд
+  const handleCardClick = (ghId: string) => {
+    setSelectedGreenhouseId(ghId);
+    if (setActiveTab) {
+      setActiveTab('dashboard');
+    }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -418,7 +430,7 @@ export const Greenhouses: React.FC = () => {
             return (
               <div
                 key={gh.id}
-                onClick={() => setSelectedGreenhouseId(gh.id)}
+                onClick={() => handleCardClick(gh.id)}
                 className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between cursor-pointer select-none hover:scale-[1.01] ${
                   isSelected
                     ? 'bg-white dark:bg-slate-900 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
