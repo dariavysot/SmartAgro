@@ -24,9 +24,7 @@ import {
   Droplets,
   Cloud,
   Layers,
-  Activity,
-  ShieldCheck,
-  Cpu,
+  Clock,
   Warehouse,
   Plus,
   Menu,
@@ -320,13 +318,36 @@ function DashboardLayout() {
             </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                  {selectedGreenhouse?.name || 'Завантаження об’єкта...'}
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Локація: {selectedGreenhouse?.location || 'Не вказана'}
-                </p>
+              {/* Заголовок теплиці та  плашка  */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    {selectedGreenhouse?.name || 'Завантаження об’єкта...'}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Локація: {selectedGreenhouse?.location || 'Не вказана'}
+                  </p>
+                </div>
+
+                <div className="inline-flex items-center gap-3.5 px-5 py-2.5 sm:min-w-[190px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs self-start sm:self-auto">
+                  <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Актуально на
+                    </p>
+                    <p className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
+                      {currentSnapshot?.timestamp
+                        ? new Date(currentSnapshot.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })
+                        : 'Очікування даних...'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Метричні картки */}
@@ -378,57 +399,13 @@ function DashboardLayout() {
                 </div>
               </div>
 
-              {/* Сповіщення та системний статус */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <AlertsPanel
-                    alerts={alerts}
-                    onDismiss={handleDismissAlert}
-                    onDismissAll={handleDismissAllAlerts}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 justify-between">
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-3 shadow-xs">
-                    <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                      <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Канал телеметрії</p>
-                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                        {isConnected ? 'SignalR WebSocket активний' : 'Підключення...'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-3 shadow-xs">
-                    <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                      <Cpu className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Останнє оновлення</p>
-                      <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                        {currentSnapshot?.timestamp
-                          ? new Date(currentSnapshot.timestamp).toLocaleTimeString()
-                          : 'Очікування даних...'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-3 shadow-xs">
-                    <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                      <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Криптографічний підпис</p>
-                      <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 truncate max-w-[180px]">
-                        {currentSnapshot?.signature
-                          ? `${currentSnapshot.signature.slice(0, 16)}...`
-                          : 'AES/HMAC Verified'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              {/* Сповіщення на всю ширину */}
+              <div>
+                <AlertsPanel
+                  alerts={alerts}
+                  onDismiss={handleDismissAlert}
+                  onDismissAll={handleDismissAllAlerts}
+                />
               </div>
             </div>
           )}
