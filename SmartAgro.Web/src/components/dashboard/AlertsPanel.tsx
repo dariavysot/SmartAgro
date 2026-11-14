@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, CheckCheck, Clock, Loader2 } from 'lucide-react';
 
 export interface AlertItem {
   id: number;
@@ -12,10 +12,12 @@ export interface AlertItem {
 interface AlertsPanelProps {
   alerts: AlertItem[];
   onDismiss: (id: number) => Promise<void> | void;
+  onDismissAll?: () => Promise<void> | void;
 }
 
-export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss }) => {
+export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onDismissAll }) => {
   const [resolvingId, setResolvingId] = useState<number | null>(null);
+  const [isResolvingAll, setIsResolvingAll] = useState(false);
 
   const handleResolveClick = async (id: number) => {
     setResolvingId(id);
@@ -26,17 +28,47 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss }) =
     }
   };
 
+  const handleResolveAllClick = async () => {
+    if (!onDismissAll || alerts.length === 0) return;
+    setIsResolvingAll(true);
+    try {
+      await onDismissAll();
+    } finally {
+      setIsResolvingAll(false);
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col h-full transition-colors">
-      {/* Заголовок та лічильник */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Заголовок, лічильник та кнопка масового вирішення */}
+      <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-amber-400" />
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">Активні сповіщення</h3>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+            {alerts.length}
+          </span>
         </div>
-        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-          {alerts.length}
-        </span>
+
+        {alerts.length > 1 && onDismissAll && (
+          <button
+            disabled={isResolvingAll || resolvingId !== null}
+            onClick={handleResolveAllClick}
+            className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-500/15 text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500/30 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {isResolvingAll ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Закриття...</span>
+              </>
+            ) : (
+              <>
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Вирішити всі ({alerts.length})</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Список тривог */}
@@ -86,7 +118,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss }) =
                 </div>
 
                 <button
-                  disabled={resolvingId === alert.id}
+                  disabled={resolvingId === alert.id || isResolvingAll}
                   onClick={() => handleResolveClick(alert.id)}
                   className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 rounded-lg transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1.5 disabled:opacity-50"
                 >
