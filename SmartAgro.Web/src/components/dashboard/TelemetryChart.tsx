@@ -18,37 +18,79 @@ export interface ChartPoint {
 
 interface TelemetryChartProps {
   data: ChartPoint[];
-  maxTempThreshold?: number; // верхня межа (за замовчуванням 32°C)
-  minTempThreshold?: number; // нижня межа (за замовчуванням 18°C)
+  maxTempThreshold?: number;
+  minTempThreshold?: number;
+  selectedRange?: '20' | '1h' | '24h';
+  onRangeChange?: (range: '20' | '1h' | '24h') => void;
 }
 
 export const TelemetryChart: React.FC<TelemetryChartProps> = ({
-  data
+  data,
+  selectedRange = '20',
+  onRangeChange,
 }) => {
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-lg h-full flex flex-col justify-between transition-colors">
-      {/* Заголовок і легенда */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+      {/* Заголовок, легенда та перемикач періоду */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">Динаміка мікроклімату</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Порівняння показників у реальному часі на різних шкалах</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Порівняння показників на різних шкалах</p>
         </div>
 
-        {/* Легенда */}
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-slate-700 dark:text-slate-300">Температура (°C)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
-            <span className="text-slate-700 dark:text-slate-300">Вологість (%)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span className="text-slate-700 dark:text-slate-300">CO₂ (ppm)</span>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Кнопки перемикання діапазону */}
+          {onRangeChange && (
+            <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => onRangeChange('20')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                  selectedRange === '20'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+                }`}
+              >
+                 20 точок
+              </button>
+              <button
+                onClick={() => onRangeChange('1h')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                  selectedRange === '1h'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+                }`}
+              >
+                1 година
+              </button>
+              <button
+                onClick={() => onRangeChange('24h')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                  selectedRange === '24h'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+                }`}
+              >
+                24 години
+              </button>
+            </div>
+          )}
+
+          {/* Легенда */}
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="text-slate-700 dark:text-slate-300">Temp (°C)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
+              <span className="text-slate-700 dark:text-slate-300">Hum (%)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <span className="text-slate-700 dark:text-slate-300">CO₂</span>
+            </div>
           </div>
         </div>
       </div>
@@ -72,7 +114,6 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
               </linearGradient>
             </defs>
 
-            {/* Адаптивна сітка */}
             <CartesianGrid
               strokeDasharray="3 3"
               stroke={isDarkMode ? '#1e293b' : '#e2e8f0'}
@@ -84,6 +125,7 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
               stroke={isDarkMode ? '#64748b' : '#94a3b8'}
               fontSize={11}
               tickLine={false}
+              interval="preserveStartEnd"
             />
 
             {/* Ліва вісь: Температура */}
