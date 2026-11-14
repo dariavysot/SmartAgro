@@ -18,8 +18,8 @@ public sealed record RegisterDto(
     [StringLength(100, MinimumLength = 6, ErrorMessage = "Пароль повинен бути не менше 6 символів")]
     string Password,
 
-    // Роль користувача (наприклад, "Operator" або "Admin"). За замовчуванням реєструємо як оператора
-    string Role = "Operator"
+    // Роль користувача (наприклад, "User" або "Admin")
+    string Role = "User"
 );
 
 /// <summary>

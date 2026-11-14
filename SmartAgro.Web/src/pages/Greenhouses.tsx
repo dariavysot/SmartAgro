@@ -88,7 +88,7 @@ export const Greenhouses: React.FC = () => {
   useEffect(() => {
     if (isAdmin) {
       apiClient
-        .get<UserOption[]>('/Greenhouses/users-list')
+        .get<UserOption[]>('/Users')
         .then((res) => {
           setUsersList(res.data);
           if (res.data.length > 0) {

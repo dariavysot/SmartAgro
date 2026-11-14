@@ -179,11 +179,16 @@ builder.Services.AddSwaggerGen(options =>
     var securityScheme = new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
+        Description = "Вставте лише JWT Access Token (Swagger автоматично підставить 'Bearer ')",
         In = ParameterLocation.Header,
-        Description = "Введіть токен у форматі: Bearer {ваш_токен}"
+        Type = SecuritySchemeType.Http,      // Змінено з ApiKey на Http
+        Scheme = "bearer",                   // Вказує протокол Bearer Authentication
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = "Bearer"
+        }
     };
 
     options.AddSecurityDefinition("Bearer", securityScheme);
@@ -191,14 +196,7 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
+            securityScheme,
             Array.Empty<string>()
         }
     });

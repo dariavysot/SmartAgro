@@ -18,7 +18,7 @@ import { DiseaseRiskWidget } from './components/dashboard/DiseaseRiskWidget';
 import { AlertsPanel, type AlertItem } from './components/dashboard/AlertsPanel';
 import { useTelemetryHub } from './hooks/useTelemetryHub';
 import { apiClient } from './api/client';
-import type { MetricStatus } from './types/telemetry';
+import type { MetricStatus, RiskBreakdown } from './types/telemetry';
 import {
   Thermometer,
   Droplets,
@@ -43,6 +43,7 @@ interface TelemetryRecord {
   soilMoisture?: number;
   signature?: string;
   timestamp: string;
+  riskBreakdown?: RiskBreakdown;
 }
 
 interface BackendAlert {
@@ -161,6 +162,7 @@ function DashboardLayout() {
       soilMoisture: liveTelemetry.soilMoisture ?? 60.0,
       signature: liveTelemetry.signature,
       timestamp: liveTelemetry.timestamp || new Date().toISOString(),
+      riskBreakdown: liveTelemetry.riskBreakdown,
     });
 
     const timeLabel = new Date(liveTelemetry.timestamp || Date.now()).toLocaleTimeString([], {
@@ -278,17 +280,21 @@ function DashboardLayout() {
               </div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">У вас ще немає підключених теплиць</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                Щоб розпочати IoT-моніторинг мікроклімату, додайте свій перший тепличний сектор або зверніться до адміністратора.
+                {user?.role === 'Admin'
+                  ? 'Щоб розпочати IoT-моніторинг мікроклімату, змонтуйте перший тепличний сектор у панелі керування.'
+                  : 'Адміністратор господарства ще не закріпив за вашим обліковим записом жодного тепличного сектора.'}
               </p>
-              <div className="pt-2">
-                <button
-                  onClick={() => setActiveTab('greenhouses')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  Перейти до керування теплицями
-                </button>
-              </div>
+              {user?.role === 'Admin' && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setActiveTab('greenhouses')}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Перейти до керування теплицями
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">
@@ -343,7 +349,10 @@ function DashboardLayout() {
                   <TelemetryChart data={history} />
                 </div>
                 <div className="h-full">
-                  <DiseaseRiskWidget riskScore={currentRisk ?? 0} />
+                  <DiseaseRiskWidget
+                    riskScore={currentRisk ?? 0}
+                    breakdown={currentSnapshot?.riskBreakdown}
+                  />
                 </div>
               </div>
 

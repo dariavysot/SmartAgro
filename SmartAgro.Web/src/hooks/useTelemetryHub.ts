@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 import type { TelemetryData } from '../types/telemetry';
 
-const HUB_URL = 'https://localhost:7168/hubs/telemetry';
+const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || 'http://localhost:5240';
+const HUB_URL = `${API_ORIGIN}/hubs/telemetry`;
 
 export const useTelemetryHub = () => {
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
