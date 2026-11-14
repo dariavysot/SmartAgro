@@ -4,8 +4,7 @@ import {
   LayoutDashboard, 
   Bell, 
   Sliders, 
-  Warehouse, 
-  ShieldCheck, 
+  Warehouse,
   Users, 
   X 
 } from 'lucide-react';
@@ -110,12 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })}
           </nav>
         </div>
-
-        {/* Статус криптографічного захисту */}
-        <div className="p-3 bg-slate-100 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="font-medium text-[11px]">AES-256 & HMAC Active</span>
-        </div>
+        
       </aside>
     </>
   );

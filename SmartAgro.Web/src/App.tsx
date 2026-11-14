@@ -201,6 +201,28 @@ function DashboardLayout() {
     }
   };
 
+  // 5. Масове вирішення всіх активних тривог обраної теплиці
+  const handleDismissAllAlerts = async () => {
+    if (alerts.length === 0) return;
+
+    const results = await Promise.allSettled(
+      alerts.map((alert) => apiClient.post(`/Alerts/${alert.id}/resolve`))
+    );
+
+    const resolvedIds = alerts
+      .filter((_, idx) => results[idx].status === 'fulfilled')
+      .map((a) => a.id);
+
+    if (resolvedIds.length > 0) {
+      setAlerts((prev) => prev.filter((a) => !resolvedIds.includes(a.id)));
+      toast.success(`Вирішено сповіщень: ${resolvedIds.length}`);
+    }
+
+    if (resolvedIds.length < alerts.length) {
+      toast.error('Частину сповіщень не вдалося оновити на сервері');
+    }
+  };
+
   const getTempStatus = (temp?: number): { status: MetricStatus; text: string } => {
     if (temp === undefined) return { status: 'normal', text: 'Очікування' };
     if (temp > 32 || temp < 15) return { status: 'critical', text: 'Критично' };
@@ -359,7 +381,11 @@ function DashboardLayout() {
               {/* Сповіщення та системний статус */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                  <AlertsPanel alerts={alerts} onDismiss={handleDismissAlert} />
+                  <AlertsPanel
+                    alerts={alerts}
+                    onDismiss={handleDismissAlert}
+                    onDismissAll={handleDismissAllAlerts}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-3 justify-between">

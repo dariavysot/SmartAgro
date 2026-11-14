@@ -20,11 +20,11 @@ export const Navbar: React.FC<NavbarProps> = ({ isStreaming = true }) => {
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <div 
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs shrink-0"
-          title={isStreaming ? 'SignalR: Підключено' : 'SignalR: Відключено'}
+          title={isStreaming ? 'З’єднання в реальному часі активне (SignalR WebSocket)' : 'Втрачено зв’язок із сервером телеметрії'}
         >
-          <Radio className={`w-3.5 h-3.5 ${isStreaming ? 'text-emerald-600 dark:text-emerald-400 animate-pulse' : 'text-slate-400 dark:text-slate-500'}`} />
+          <Radio className={`w-3.5 h-3.5 ${isStreaming ? 'text-emerald-600 dark:text-emerald-400 animate-pulse' : 'text-rose-500'}`} />
           <span className="text-slate-700 dark:text-slate-300 hidden md:inline font-medium">
-            {isStreaming ? 'SignalR: Підключено' : 'Відключено'}
+            {isStreaming ? 'SignalR: Дані наживо' : 'SignalR: Немає зв’язку'}
           </span>
         </div>
 
