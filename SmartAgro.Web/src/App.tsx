@@ -5,7 +5,7 @@ import { GreenhouseProvider, useGreenhouse } from './context/GreenhouseContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
 import { Sidebar } from './components/layout/Sidebar';
-import { Navbar } from './components/layout/Navbar';
+import { Navbar, type GlobalAlertItem } from './components/layout/Navbar';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Thresholds } from './pages/Thresholds';
@@ -70,18 +70,32 @@ function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chartRange, setChartRange] = useState<'20' | '1h' | '24h'>('20');
   const { user } = useAuth();
-  const { greenhouses, selectedGreenhouse, isLoading } = useGreenhouse();
+  const { greenhouses, selectedGreenhouse, setSelectedGreenhouseId, isLoading } = useGreenhouse();
   const { telemetry: liveTelemetry, isConnected } = useTelemetryHub();
 
   const [history, setHistory] = useState<ChartPoint[]>([]);
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [allGlobalAlerts, setAllGlobalAlerts] = useState<GlobalAlertItem[]>([]);
+  const [greenhouseAlerts, setGreenhouseAlerts] = useState<AlertItem[]>([]);
   const [currentSnapshot, setCurrentSnapshot] = useState<TelemetryRecord | null>(null);
   const [thresholds, setThresholds] = useState<GreenhouseThresholds>(defaultThresholds);
 
-  // 1. Завантаження активних сповіщень
+  // 1. Завантаження активних сповіщень (глобально для всіх теплиць і локально для поточної)
   const fetchActiveAlerts = useCallback(async () => {
     try {
       const res = await apiClient.get<BackendAlert[]>('/Alerts/active');
+      
+      // Усі глобальні сповіщення для Navbar
+      const globalMapped = res.data.map((a) => ({
+        id: a.id,
+        greenhouseId: a.greenhouseId,
+        greenhouseName: a.greenhouseName,
+        message: a.message,
+        severity: a.severity,
+        timestamp: a.createdAt,
+      }));
+      setAllGlobalAlerts(globalMapped);
+
+      // Сповіщення тільки для поточної обраної теплиці (для панелі на дашборді)
       const filtered = res.data
         .filter((a) => !selectedGreenhouse?.id || a.greenhouseId === selectedGreenhouse.id)
         .map((a) => ({
@@ -91,13 +105,19 @@ function DashboardLayout() {
           timestamp: a.createdAt,
           greenhouseName: a.greenhouseName,
         }));
-      setAlerts(filtered);
+      setGreenhouseAlerts(filtered);
     } catch (err) {
       console.error('Помилка завантаження активних тривог:', err);
     }
   }, [selectedGreenhouse?.id]);
 
-  // 2. Завантаження телеметрії з урахуванням вибраного діапазону (20 точок / 1 год / 24 год)
+  // Обробник кліку на тривогу в Navbar: переключає теплицю на проблемну і веде на дашборд
+  const handleSelectAlertFromNavbar = (targetGreenhouseId: string) => {
+    setSelectedGreenhouseId(targetGreenhouseId);
+    setActiveTab('dashboard');
+  };
+
+  // 2. Завантаження телеметрії з урахуванням вибраного діапазону
   useEffect(() => {
     fetchActiveAlerts();
 
@@ -112,10 +132,9 @@ function DashboardLayout() {
 
     const loadInitialData = async () => {
       try {
-        // Визначаємо ліміт або параметр запиту залежно від обраного діапазону
         let limit = 20;
-        if (chartRange === '1h') limit = 60; // приблизно 1 точка на хвилину
-        if (chartRange === '24h') limit = 288; // кожні 5 хв за добу
+        if (chartRange === '1h') limit = 60;
+        if (chartRange === '24h') limit = 288;
 
         const [latestRes, historyRes, thresholdsRes] = await Promise.allSettled([
           apiClient.get<TelemetryRecord>(`/Telemetry/latest/${selectedGreenhouse.id}`),
@@ -134,7 +153,6 @@ function DashboardLayout() {
         if (historyRes.status === 'fulfilled' && Array.isArray(historyRes.value.data)) {
           const points: ChartPoint[] = [...historyRes.value.data].reverse().map((item) => {
             const dateObj = new Date(item.timestamp);
-            // Для 24 годин виводимо дату та час, для коротких — лише час
             const timeLabel = chartRange === '24h' 
               ? `${dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
               : dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -178,7 +196,7 @@ function DashboardLayout() {
     };
   }, [selectedGreenhouse?.id, chartRange, fetchActiveAlerts, activeTab]);
 
-  // 3. Обробка живого потоку SignalR (працює при діапазоні «20 точок»)
+  // 3. Обробка живого потоку SignalR
   useEffect(() => {
     if (!liveTelemetry) return;
 
@@ -193,7 +211,7 @@ function DashboardLayout() {
       humidity: liveTelemetry.humidity,
       co2Level: liveTelemetry.co2Level,
       diseaseRiskScore: liveTelemetry.diseaseRiskScore,
-      soilMoisture: liveTelemetry.soilMoisture ?? 60.0,
+      soilMoisture: liveTelemetry.soilMoisture ?? 62.0,
       signature: liveTelemetry.signature,
       timestamp: liveTelemetry.timestamp || new Date().toISOString(),
       riskBreakdown: liveTelemetry.riskBreakdown,
@@ -235,25 +253,27 @@ function DashboardLayout() {
     try {
       await apiClient.post(`/Alerts/${id}/resolve`);
       toast.success(`Тривогу #${id} вирішено`);
-      setAlerts((prev) => prev.filter((a) => a.id !== id));
+      setGreenhouseAlerts((prev) => prev.filter((a) => a.id !== id));
+      setAllGlobalAlerts((prev) => prev.filter((a) => a.id !== id));
     } catch {
       toast.error('Не вдалося оновити статус тривоги на сервері');
     }
   };
 
   const handleDismissAllAlerts = async () => {
-    if (alerts.length === 0) return;
+    if (greenhouseAlerts.length === 0) return;
 
     const results = await Promise.allSettled(
-      alerts.map((alert) => apiClient.post(`/Alerts/${alert.id}/resolve`))
+      greenhouseAlerts.map((alert) => apiClient.post(`/Alerts/${alert.id}/resolve`))
     );
 
-    const resolvedIds = alerts
+    const resolvedIds = greenhouseAlerts
       .filter((_, idx) => results[idx].status === 'fulfilled')
       .map((a) => a.id);
 
     if (resolvedIds.length > 0) {
-      setAlerts((prev) => prev.filter((a) => !resolvedIds.includes(a.id)));
+      setGreenhouseAlerts((prev) => prev.filter((a) => !resolvedIds.includes(a.id)));
+      setAllGlobalAlerts((prev) => prev.filter((a) => !resolvedIds.includes(a.id)));
       toast.success(`Вирішено сповіщень: ${resolvedIds.length}`);
     }
   };
@@ -311,7 +331,11 @@ function DashboardLayout() {
           </button>
 
           <div className="flex-1 min-w-0">
-            <Navbar isStreaming={isConnected} />
+            <Navbar 
+              isStreaming={isConnected} 
+              globalAlerts={allGlobalAlerts} 
+              onSelectAlert={handleSelectAlertFromNavbar} 
+            />
           </div>
         </div>
 
@@ -434,12 +458,13 @@ function DashboardLayout() {
                 </div>
               </div>
 
-              {/* Сповіщення */}
+              {/* Оперативні сповіщення (максимум 3 останніх) */}
               <div>
                 <AlertsPanel
-                  alerts={alerts}
+                  alerts={greenhouseAlerts}
                   onDismiss={handleDismissAlert}
                   onDismissAll={handleDismissAllAlerts}
+                  onViewAll={() => setActiveTab('alerts')}
                 />
               </div>
             </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, CheckCheck, Clock, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, CheckCheck, Clock, Loader2, ArrowRight } from 'lucide-react';
 
 export interface AlertItem {
   id: number;
@@ -13,9 +13,10 @@ interface AlertsPanelProps {
   alerts: AlertItem[];
   onDismiss: (id: number) => Promise<void> | void;
   onDismissAll?: () => Promise<void> | void;
+  onViewAll?: () => void;
 }
 
-export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onDismissAll }) => {
+export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onDismissAll, onViewAll }) => {
   const [resolvingId, setResolvingId] = useState<number | null>(null);
   const [isResolvingAll, setIsResolvingAll] = useState(false);
 
@@ -38,9 +39,12 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
     }
   };
 
+  // Показуємо лише топ-3 найсвіжіших сповіщень на дашборді
+  const displayedAlerts = alerts.slice(0, 3);
+
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col h-full transition-colors">
-      {/* Заголовок, лічильник та кнопка масового вирішення */}
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col transition-colors">
+      {/* Заголовок, лічильник та кнопка масового вирішення зверху */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-amber-400" />
@@ -64,7 +68,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
             ) : (
               <>
                 <CheckCheck className="w-3.5 h-3.5" />
-                <span>Вирішено всі ({alerts.length})</span>
+                <span>Вирішено всі</span>
               </>
             )}
           </button>
@@ -72,14 +76,14 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
       </div>
 
       {/* Список тривог */}
-      <div className="flex-1 space-y-2.5 overflow-y-auto max-h-56 pr-1">
-        {alerts.length === 0 ? (
-          <div className="h-32 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 text-xs">
+      <div className="space-y-2.5 mb-4">
+        {displayedAlerts.length === 0 ? (
+          <div className="h-28 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 text-xs">
             <CheckCircle className="w-6 h-6 mb-2 text-emerald-500/50" />
             <span>Усі показники в межах норми. Аномалій немає.</span>
           </div>
         ) : (
-          alerts.map((alert) => {
+          displayedAlerts.map((alert) => {
             const isCritical = alert.type.toLowerCase() === 'critical';
 
             return (
@@ -136,6 +140,19 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
           })
         )}
       </div>
+
+      {/* Кнопка переходу в журнал праворуч унизу у єдиному стилі */}
+      {onViewAll && (
+        <div className="flex justify-end mt-auto pt-1">
+          <button
+            onClick={onViewAll}
+            className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-500/15 text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500/30 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 group"
+          >
+            <span>Переглянути весь журнал</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
