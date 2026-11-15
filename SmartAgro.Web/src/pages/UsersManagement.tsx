@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
-import { Users, UserPlus, Shield, User, Mail, Calendar, Edit3, Trash2, KeyRound, Loader2, X } from 'lucide-react';
+import { Users, UserPlus, Shield, User, Mail, Edit3, Trash2, KeyRound, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface UserItem {

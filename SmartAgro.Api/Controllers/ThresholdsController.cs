@@ -48,8 +48,20 @@ public class ThresholdsController(AppDbContext dbContext) : ControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.GreenhouseId == greenhouseId, ct);
 
+        // Якщо пороги ще не налаштовані — повертаємо дефолтні значення замість 404 помилки
         if (thresholds == null)
-            return NotFound(new { message = "Порогові значення для цієї теплиці ще не налаштовані." });
+        {
+            var defaultThreshold = new Threshold
+            {
+                GreenhouseId = greenhouseId,
+                MinTemperature = 18.0,
+                MaxTemperature = 28.0,
+                MinHumidity = 50.0,
+                MaxHumidity = 80.0,
+                MaxCo2Level = 1000.0
+            };
+            return Ok(defaultThreshold);
+        }
 
         return Ok(thresholds);
     }

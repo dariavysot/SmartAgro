@@ -124,8 +124,8 @@ public sealed class GreenhouseSimulatorService(
                         }
                     }
 
-                    // ML-інференс
-                    float risk = mlService.PredictDiseaseRisk(temp, humidity, co2, soilMoisture);
+                    // ML-інференс за 4 факторами (ONNX)
+                    var riskAssessment = mlService.PredictMultiFactorRisk(temp, humidity, co2, soilMoisture);
 
                     var rawData = new SensorData
                     {
@@ -133,7 +133,7 @@ public sealed class GreenhouseSimulatorService(
                         Temperature = temp,
                         Humidity = humidity,
                         Co2Level = co2,
-                        DiseaseRiskScore = Math.Round(risk, 2),
+                        DiseaseRiskScore = Math.Round(riskAssessment.OverallRiskScore, 2),
                         Timestamp = DateTime.UtcNow
                     };
 
@@ -145,7 +145,7 @@ public sealed class GreenhouseSimulatorService(
 
                     sensorBatch.Add(verifiedData);
 
-                    // Трансляція в SignalR з обов'язковим вказанням GreenhouseId
+                    // Трансляція в SignalR з усіма 4 факторами ML-оцінки
                     await telemetryNotifier.BroadcastTelemetryAsync(new
                     {
                         verifiedData.Id,
@@ -157,7 +157,15 @@ public sealed class GreenhouseSimulatorService(
                         verifiedData.DiseaseRiskScore,
                         soilMoisture,
                         verifiedData.Timestamp,
-                        verifiedData.Signature
+                        verifiedData.Signature,
+                        riskBreakdown = new
+                        {
+                            fungalDiseaseRisk = riskAssessment.FungalDiseaseRisk,
+                            vpdStressRisk = riskAssessment.VpdStressRisk,
+                            co2InefficiencyRisk = riskAssessment.Co2InefficiencyRisk,
+                            rootHypoxiaRisk = riskAssessment.RootHypoxiaRisk,
+                            overallRiskScore = riskAssessment.OverallRiskScore
+                        }
                     }, stoppingToken);
 
                     // Перевірка індивідуальних тривог для кожної теплиці

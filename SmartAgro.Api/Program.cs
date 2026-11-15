@@ -31,7 +31,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     else
     {
         var pgConnection = builder.Configuration.GetConnectionString("PostgreSql");
-        options.UseNpgsql(pgConnection, x => x.MigrationsAssembly("SmartAgro.Core"));
+        options.UseNpgsql(pgConnection, x =>
+        {
+            x.MigrationsAssembly("SmartAgro.Core");
+            // Додаємо політику повторних спроб при тимчасових обривах з'єднання чи перезапуску БД (коди типу 57P01)
+            x.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorCodesToAdd: null);
+        });
     }
 });
 
@@ -110,7 +118,6 @@ builder.Services.AddAuthentication(options =>
         },
         OnChallenge = async context =>
         {
-            // Перехоплення 401 Unauthorized для формування стандартизованої відповіді
             context.HandleResponse();
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.ContentType = "application/problem+json";
@@ -151,7 +158,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RequireAdminOnly", policy =>
         policy.RequireRole("Admin"));
 
-    // Політика керування об'єктами: адміністратор або користувач із правом CanManageGreenhouses
     options.AddPolicy("CanManageGreenhouses", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.IsInRole("Admin") ||
@@ -181,8 +187,8 @@ builder.Services.AddSwaggerGen(options =>
         Name = "Authorization",
         Description = "Вставте лише JWT Access Token (Swagger автоматично підставить 'Bearer ')",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,      // Змінено з ApiKey на Http
-        Scheme = "bearer",                   // Вказує протокол Bearer Authentication
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
         BearerFormat = "JWT",
         Reference = new OpenApiReference
         {
