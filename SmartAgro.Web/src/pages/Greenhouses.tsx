@@ -17,6 +17,7 @@ import {
   Filter,
   ArrowUpDown,
   RotateCcw,
+  Sliders,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -203,6 +204,15 @@ export const Greenhouses: React.FC<GreenhousesProps> = ({ setActiveTab }) => {
     setSelectedGreenhouseId(ghId);
     if (setActiveTab) {
       setActiveTab('dashboard');
+    }
+  };
+
+  // Функція переходу до сторінки налаштування меж для конкретної теплиці
+  const handleOpenThresholds = (ghId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedGreenhouseId(ghId);
+    if (setActiveTab) {
+      setActiveTab('thresholds');
     }
   };
 
@@ -450,6 +460,15 @@ export const Greenhouses: React.FC<GreenhousesProps> = ({ setActiveTab }) => {
                     </div>
 
                     <div className="flex items-center gap-1.5">
+                      {/* Кнопка переходу до налаштування меж для цієї теплиці */}
+                      <button
+                        onClick={(e) => handleOpenThresholds(gh.id, e)}
+                        title="Керування межами та пороговими значеннями"
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Sliders className="w-4 h-4" />
+                      </button>
+
                       {isAdmin && (
                         <>
                           <button
