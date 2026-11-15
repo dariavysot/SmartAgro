@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
@@ -16,9 +18,31 @@ using SmartAgro.Core.Simulator;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Конфігурація незалежності від СУБД (PostgreSQL / SQLite)
+// --- 0. ВАЛІДАЦІЯ КОНФІГУРАЦІЇ ПРИ СТАРТІ (Fail Fast) ---
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"];
+var aesKey = builder.Configuration["CryptoSettings:AesKeyBase64"];
+var hmacKey = builder.Configuration["CryptoSettings:HmacKeyBase64"];
+var dbConnection = builder.Configuration["ConnectionStrings:PostgreSql"];
 var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "PostgreSql";
 
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("Критична помилка конфігурації: відсутній JwtSettings:SecretKey!");
+}
+if (string.IsNullOrWhiteSpace(aesKey))
+{
+    throw new InvalidOperationException("Критична помилка конфігурації: відсутній CryptoSettings:AesKeyBase64!");
+}
+if (string.IsNullOrWhiteSpace(hmacKey))
+{
+    throw new InvalidOperationException("Критична помилка конфігурації: відсутній CryptoSettings:HmacKeyBase64!");
+}
+if (dbProvider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(dbConnection))
+{
+    throw new InvalidOperationException("Критична помилка конфігурації: відсутній ConnectionStrings:PostgreSql!");
+}
+
+// 1. Конфігурація незалежності від СУБД (PostgreSQL / SQLite)
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
@@ -81,7 +105,44 @@ builder.Services.AddCors(options =>
 // 9. Фоновий IoT-симулятор
 builder.Services.AddHostedService<GreenhouseSimulatorService>();
 
-// 10. Налаштування JWT Bearer автентифікації та обробки 401/403 статусів
+// 10. Налаштування Rate Limiting (Захист від брутфорсу та DoS)
+builder.Services.AddRateLimiter(options =>
+{
+    // Загальна політика (60 запитів на хвилину)
+    options.AddFixedWindowLimiter("fixed", opt =>
+    {
+        opt.PermitLimit = 60;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 2;
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+
+    // Сувора політика для логіну/реєстрації (5 спроб на хвилину)
+    options.AddFixedWindowLimiter("auth-policy", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/problem+json";
+
+        var problemDetails = new
+        {
+            type = "https://tools.ietf.org/html/rfc6585#section-4",
+            title = "Перевищено ліміт запитів",
+            status = 429,
+            detail = "Забагато запитів з вашої IP-адреси. Спробуйте пізніше."
+        };
+
+        await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+    };
+});
+
+// 11. Налаштування JWT Bearer автентифікації та обробки 401/403 статусів
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -134,7 +195,6 @@ builder.Services.AddAuthentication(options =>
         },
         OnForbidden = async context =>
         {
-            // Перехоплення 403 Forbidden при нестачі прав/ролей
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/problem+json";
 
@@ -151,10 +211,9 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// 11. Налаштування Policy-Based Authorization
+// 12. Налаштування Policy-Based Authorization
 builder.Services.AddAuthorization(options =>
 {
-    // Політика виключно для адміністратора
     options.AddPolicy("RequireAdminOnly", policy =>
         policy.RequireRole("Admin"));
 
@@ -172,7 +231,7 @@ builder.Services.AddControllers()
 
 builder.Services.AddEndpointsApiExplorer();
 
-// 12. Swagger UI з підтримкою Bearer
+// 13. Swagger UI з підтримкою Bearer
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -210,7 +269,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 13. Глобальна обробка винятків без витоку стек-трейсу клієнту
+// 14. Глобальна обробка винятків без витоку стек-трейсу клієнту
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -267,6 +326,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("FrontendPolicy");
+
+// Підключення мідлвару обмеження кількості запитів
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

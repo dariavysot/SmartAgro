@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SmartAgro.Api.DTOs;
 using SmartAgro.Core.Data;
@@ -21,8 +22,10 @@ public class AuthController(
     /// </summary>
     [HttpPost("register")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-policy")] // Суворий ліміт проти масової реєстрації / ботів
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto, CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -94,9 +97,11 @@ public class AuthController(
     /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-policy")] // Суворий ліміт проти брутфорсу паролів
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -139,7 +144,7 @@ public class AuthController(
     public IActionResult GetCurrentUserProfile()
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst("sub")?.Value;
+                   ?? User.FindFirst("sub")?.Value;
         var email = User.FindFirst(ClaimTypes.Email)?.Value;
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
