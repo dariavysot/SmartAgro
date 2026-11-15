@@ -34,3 +34,4 @@ secrets.json
 project_dump.txt
 *.dump
 SmartAgro.Web/.env
+.env
