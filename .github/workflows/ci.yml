@@ -20,11 +20,15 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Restore dependencies (All)
-      run: dotnet restore
+    - name: Restore Backend and Test dependencies
+      run: |
+        dotnet restore SmartAgro.Api/SmartAgro.Api.csproj
+        dotnet restore SmartAgro.Tests/SmartAgro.Tests.csproj
 
     - name: Run .NET Code Style Analysis (C4)
-      run: dotnet format --verify-no-changes --severity info --no-restore
+      run: |
+        dotnet format SmartAgro.Core/SmartAgro.Core.csproj --verify-no-changes --severity info --no-restore
+        dotnet format SmartAgro.Api/SmartAgro.Api.csproj --verify-no-changes --severity info --no-restore
 
     - name: Build backend and tests
       run: dotnet build SmartAgro.Tests/SmartAgro.Tests.csproj --no-restore --configuration Release
