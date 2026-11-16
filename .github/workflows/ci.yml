@@ -26,12 +26,16 @@ jobs:
     - name: Build backend and tests
       run: dotnet build SmartAgro.Tests/SmartAgro.Tests.csproj --no-restore --configuration Release
 
+    - name: Run .NET Code Style Analysis
+      run: dotnet format --verify-no-changes --severity info
+
     - name: Run Unit Tests with Coverage
       run: |
         dotnet test SmartAgro.Tests/SmartAgro.Tests.csproj \
           --no-build \
           --configuration Release \
-          --collect:"XPlat Code Coverage"
+          --collect:"XPlat Code Coverage" \
+          --settings SmartAgro.Tests/coverlet.runsettings
 
     - name: Generate Code Coverage Report
       uses: danielpalme/ReportGenerator-GitHub-Action@v5
@@ -45,11 +49,3 @@ jobs:
       with:
         name: CodeCoverageReport
         path: coveragereport
-    
-    - name: Run Unit Tests with Coverage
-      run: |
-        dotnet test SmartAgro.Tests/SmartAgro.Tests.csproj \
-          --no-build \
-          --configuration Release \
-          --collect:"XPlat Code Coverage" \
-          --settings SmartAgro.Tests/coverlet.runsettings
