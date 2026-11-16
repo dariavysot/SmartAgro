@@ -20,6 +20,7 @@ import { useTelemetryHub } from './hooks/useTelemetryHub';
 import { apiClient } from './api/client';
 import type { MetricStatus, RiskBreakdown } from './types/telemetry';
 import type { GreenhouseThresholds } from './types/threshold';
+import { Footer } from './components/layout/Footer';
 import {
   Thermometer,
   Droplets,
@@ -320,8 +321,10 @@ function DashboardLayout() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors">
+      {/* Права колонка тепер єдиним цілим з прокруткою (h-full overflow-y-auto) */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50 transition-colors">
+        {/* Шапка закріплена зверху (sticky top-0 z-30) */}
+        <div className="flex items-center bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors shrink-0 sticky top-0 z-30">
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="lg:hidden ml-4 p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
@@ -339,7 +342,8 @@ function DashboardLayout() {
           </div>
         </div>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50 transition-colors">
+        {/* Контент сторінки */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
           {activeTab === 'thresholds' ? (
             <Thresholds />
           ) : activeTab === 'greenhouses' ? (
@@ -470,6 +474,9 @@ function DashboardLayout() {
             </div>
           )}
         </main>
+
+        {/* Універсальний футер внизу сторінки, що прокручується разом із контентом */}
+        <Footer />
       </div>
     </div>
   );
