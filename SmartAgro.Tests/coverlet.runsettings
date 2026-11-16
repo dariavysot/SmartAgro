@@ -1,16 +1,17 @@
-﻿<runsettings>
-  <dataCollectionRunSettings>
-    <dataCollectors>
-      <dataCollector friendlyName="XPlat Code Coverage">
-        <configuration>
-          <Format>cobertura</Format>
-          <Exclude>
-            [SmartAgro.Core]SmartAgro.Core.Migrations.*,
-            [SmartAgro.Core]SmartAgro.Core.Data.*ModelSnapshot*
-          </Exclude>
-          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
-        </configuration>
-      </dataCollector>
-    </dataCollectors>
-  </dataCollectionRunSettings>
-</runsettings>
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+	<DataCollectionRunSettings>
+		<DataCollectors>
+			<DataCollector friendlyName="XPlat Code Coverage">
+				<Configuration>
+					<Format>cobertura</Format>
+					<Exclude>
+						[SmartAgro.Core]SmartAgro.Core.Migrations.*,
+						[SmartAgro.Core]SmartAgro.Core.Data.*ModelSnapshot*
+					</Exclude>
+					<ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+				</Configuration>
+			</DataCollector>
+		</DataCollectors>
+	</DataCollectionRunSettings>
+</RunSettings>
