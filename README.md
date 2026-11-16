@@ -286,18 +286,29 @@ npm run dev
 
   ```powershell
   docker compose up --build -d
-  
   ```
 
 * Контейнер бази даних за замовчуванням слухає стандартний порт PostgreSQL (`5432`), який мапиться на хост-машину, що дозволяє бекенду легко підключатися до нього через `Host=localhost;Port=5432`.
 
-## Тестування
+## Тестування та CI/CD
 
-Проєкт містить набір автоматизованих модульних тестів на базі **xUnit** (`SmartAgro.Tests`) для перевірки криптографічного шару (шифрування, дешифрування, виявлення підробок HMAC та захист від Replay-атак).
+Проєкт містить комплекс модульних тестів (**xUnit** у `SmartAgro.Tests`), які охоплюють криптографічний захист (`TelemetryCryptoService`), автентифікацію і токени (`TokenService`), хешування паролів (`Pbkdf2PasswordHasher`) та бізнес-логіку тривог (`AlertService`).
 
-### Запуск тестів
+### Локальний запуск тестів із покриттям:
 
 ```powershell
-dotnet test
+dotnet test SmartAgro.Tests/SmartAgro.Tests.csproj --collect:"XPlat Code Coverage" --settings SmartAgro.Tests/coverlet.runsettings
 ```
+
+### Автоматизований CI/CD (GitHub Actions):
+
+У репозиторії налаштовано конвеєр (`.github/workflows/ci.yml`), який під час кожного пушу чи pull-request-у у гілки `develop` / `main`:
+
+1. Підіймає ізольоване середовище на Linux-сервері.
+
+2. Інсталює .NET 10 SDK, відновлює залежності та збирає проєкт.
+
+3. Проганяє юніт-тести із збором метрик покриття коду (з виключенням автозгенерованих міграцій EF Core через `coverlet.runsettings`).
+
+4. Генерує інтерактивний HTML-звіт через `ReportGenerator` та вивантажує його як артефакт (`CodeCoverageReport`), а також публікує зведення у вкладці *Summary*.
 
