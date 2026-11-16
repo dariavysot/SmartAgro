@@ -27,8 +27,8 @@ jobs:
 
     - name: Run .NET Code Style Analysis (C4)
       run: |
-        dotnet format SmartAgro.Core/SmartAgro.Core.csproj --verify-no-changes --severity info --no-restore
-        dotnet format SmartAgro.Api/SmartAgro.Api.csproj --verify-no-changes --severity info --no-restore
+        dotnet format SmartAgro.Core/SmartAgro.Core.csproj --verify-no-changes --no-restore
+        dotnet format SmartAgro.Api/SmartAgro.Api.csproj --verify-no-changes --no-restore
 
     - name: Build backend and tests
       run: dotnet build SmartAgro.Tests/SmartAgro.Tests.csproj --no-restore --configuration Release
