@@ -65,7 +65,7 @@ public partial class GreenhouseDetailViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            await Shell.Current.DisplayAlert("Помилка", $"Не вдалося отримати дані: {ex.Message}", "OK");
+            await Shell.Current.DisplayAlertAsync("Помилка", $"Не вдалося отримати дані: {ex.Message}", "OK");
         }
         finally
         {
@@ -80,7 +80,7 @@ public partial class GreenhouseDetailViewModel : BaseViewModel
 
         if (string.IsNullOrWhiteSpace(Name) || string.IsNullOrWhiteSpace(Location))
         {
-            await Shell.Current.DisplayAlert("Помилка валідації", "Назва та локація є обов'язковими.", "OK");
+            await Shell.Current.DisplayAlertAsync("Помилка валідації", "Назва та локація є обов'язковими.", "OK");
             return;
         }
 
@@ -117,12 +117,12 @@ public partial class GreenhouseDetailViewModel : BaseViewModel
             }
             else
             {
-                await Shell.Current.DisplayAlert("Помилка", "Сервер відхилив запит на збереження.", "OK");
+                await Shell.Current.DisplayAlertAsync("Помилка", "Сервер відхилив запит на збереження.", "OK");
             }
         }
         catch (Exception ex)
         {
-            await Shell.Current.DisplayAlert("Помилка", $"Виникла помилка: {ex.Message}", "OK");
+            await Shell.Current.DisplayAlertAsync("Помилка", $"Виникла помилка: {ex.Message}", "OK");
         }
         finally
         {
@@ -135,13 +135,13 @@ public partial class GreenhouseDetailViewModel : BaseViewModel
     {
         if (_apiService.CurrentUserRole != "Admin")
         {
-            await Shell.Current.DisplayAlert("Доступ обмежено", "Видаляти теплиці може лише адміністратор.", "OK");
+            await Shell.Current.DisplayAlertAsync("Доступ обмежено", "Видаляти теплиці може лише адміністратор.", "OK");
             return;
         }
 
         if (!Guid.TryParse(GreenhouseId, out var id)) return;
 
-        bool confirm = await Shell.Current.DisplayAlert("Підтвердження", $"Ви дійсно бажаєте видалити теплицю «{Name}»?", "Видалити", "Скасувати");
+        bool confirm = await Shell.Current.DisplayAlertAsync("Підтвердження", $"Ви дійсно бажаєте видалити теплицю «{Name}»?", "Видалити", "Скасувати");
         if (!confirm) return;
 
         try
@@ -150,17 +150,17 @@ public partial class GreenhouseDetailViewModel : BaseViewModel
             bool success = await _apiService.DeleteGreenhouseAsync(id);
             if (success)
             {
-                await Shell.Current.DisplayAlert("Успіх", "Теплицю успішно видалено.", "OK");
+                await Shell.Current.DisplayAlertAsync("Успіх", "Теплицю успішно видалено.", "OK");
                 await Shell.Current.GoToAsync("..");
             }
             else
             {
-                await Shell.Current.DisplayAlert("Помилка", "Сервер відхилив видалення теплиці.", "OK");
+                await Shell.Current.DisplayAlertAsync("Помилка", "Сервер відхилив видалення теплиці.", "OK");
             }
         }
         catch (Exception ex)
         {
-            await Shell.Current.DisplayAlert("Помилка", $"Помилка видалення: {ex.Message}", "OK");
+            await Shell.Current.DisplayAlertAsync("Помилка", $"Помилка видалення: {ex.Message}", "OK");
         }
         finally
         {
