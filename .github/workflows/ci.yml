@@ -45,3 +45,11 @@ jobs:
       with:
         name: CodeCoverageReport
         path: coveragereport
+    
+    - name: Run Unit Tests with Coverage
+      run: |
+        dotnet test SmartAgro.Tests/SmartAgro.Tests.csproj \
+          --no-build \
+          --configuration Release \
+          --collect:"XPlat Code Coverage" \
+          --settings SmartAgro.Tests/coverlet.runsettings
