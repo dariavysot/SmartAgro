@@ -32,3 +32,16 @@ jobs:
           --no-build \
           --configuration Release \
           --collect:"XPlat Code Coverage"
+
+    - name: Generate Code Coverage Report
+      uses: danielpalme/ReportGenerator-GitHub-Action@v5
+      with:
+        reports: '**/coverage.cobertura.xml'
+        targetdir: 'coveragereport'
+        reporttypes: 'Html;MarkdownSummary'
+
+    - name: Upload Coverage Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CodeCoverageReport
+        path: coveragereport
