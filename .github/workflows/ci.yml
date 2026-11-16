@@ -2,7 +2,7 @@ name: .NET CI & Test Coverage
 
 on:
   push:
-    branches: [ develop, main, feature/ci-workflow]
+    branches: [ develop, main, feature/ci-workflow ]
   pull_request:
     branches: [ develop, main ]
   workflow_dispatch:
@@ -20,16 +20,15 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Restore dependencies for Tests
+      run: dotnet restore SmartAgro.Tests/SmartAgro.Tests.csproj
 
-    - name: Build project
-      run: dotnet build --no-restore --configuration Release
+    - name: Build backend and tests
+      run: dotnet build SmartAgro.Tests/SmartAgro.Tests.csproj --no-restore --configuration Release
 
     - name: Run Unit Tests with Coverage
       run: |
         dotnet test SmartAgro.Tests/SmartAgro.Tests.csproj \
           --no-build \
           --configuration Release \
-          --collect:"XPlat Code Coverage" \
-          --settings SmartAgro.Tests/coverlet.runsettings
+          --collect:"XPlat Code Coverage"
