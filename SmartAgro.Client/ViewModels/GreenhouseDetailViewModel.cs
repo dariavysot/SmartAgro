@@ -11,16 +11,16 @@ public partial class GreenhouseDetailViewModel : BaseViewModel
     private readonly IApiService _apiService;
 
     [ObservableProperty]
-    private string? greenhouseId;
+    public partial string? GreenhouseId { get; set; }
 
     [ObservableProperty]
-    private string name = string.Empty;
+    public partial string Name { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string location = string.Empty;
+    public partial string Location { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool isEditMode;
+    public partial bool IsEditMode { get; set; }
 
     // Кнопка видалення видима тільки під час редагування і лише для адміністратора
     public bool CanDelete => IsEditMode && _apiService.CurrentUserRole == "Admin";

@@ -9,13 +9,13 @@ public partial class LoginViewModel : BaseViewModel
     private readonly IApiService _apiService;
 
     [ObservableProperty]
-    private string email = "admin@smartagro.ua";
+    public partial string Email { get; set; } = "admin@smartagro.ua";
 
     [ObservableProperty]
-    private string password = "Super_strong123!";
+    public partial string Password { get; set; } = "Super_strong123!";
 
     [ObservableProperty]
-    private string errorMessage = string.Empty;
+    public partial string ErrorMessage { get; set; } = string.Empty;
 
     public LoginViewModel(IApiService apiService)
     {

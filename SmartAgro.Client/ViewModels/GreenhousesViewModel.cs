@@ -13,7 +13,7 @@ public partial class GreenhousesViewModel : BaseViewModel
     public ObservableCollection<GreenhouseItem> Greenhouses { get; } = [];
 
     [ObservableProperty]
-    private bool isRefreshing;
+    public partial bool IsRefreshing { get; set; }
 
     public GreenhousesViewModel(IApiService apiService)
     {
