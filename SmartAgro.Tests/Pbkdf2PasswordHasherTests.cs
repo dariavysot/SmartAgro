@@ -8,16 +8,17 @@ public class Pbkdf2PasswordHasherTests
     private readonly Pbkdf2PasswordHasher _passwordHasher = new();
 
     [Fact]
-    public void HashPassword_ShouldReturnValidHashString()
+    public void HashPassword_ShouldReturnValidHashAndSalt()
     {
         // Arrange
         var password = "SecureAgroPassword123!";
 
         // Act
-        var hash = _passwordHasher.HashPassword(password);
+        var (hash, salt) = _passwordHasher.HashPassword(password);
 
         // Assert
         Assert.False(string.IsNullOrWhiteSpace(hash));
+        Assert.False(string.IsNullOrWhiteSpace(salt));
         Assert.NotEqual(password, hash);
     }
 
@@ -26,10 +27,10 @@ public class Pbkdf2PasswordHasherTests
     {
         // Arrange
         var password = "MySecretPassword!";
-        var hash = _passwordHasher.HashPassword(password);
+        var (hash, salt) = _passwordHasher.HashPassword(password);
 
         // Act
-        var isValid = _passwordHasher.VerifyPassword(password, hash);
+        var isValid = _passwordHasher.VerifyPassword(password, hash, salt);
 
         // Assert
         Assert.True(isValid);
@@ -40,10 +41,10 @@ public class Pbkdf2PasswordHasherTests
     {
         // Arrange
         var password = "CorrectPassword";
-        var hash = _passwordHasher.HashPassword(password);
+        var (hash, salt) = _passwordHasher.HashPassword(password);
 
         // Act
-        var isValid = _passwordHasher.VerifyPassword("WrongPassword", hash);
+        var isValid = _passwordHasher.VerifyPassword("WrongPassword", hash, salt);
 
         // Assert
         Assert.False(isValid);
